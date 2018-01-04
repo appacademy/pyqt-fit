@@ -1,0 +1,178 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.utils &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="prev" title="Module pyqt_fit.kernels" href="mod_kernels.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kernels.html" title="Module pyqt_fit.kernels"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.utils">
+<span id="module-pyqt-fit-utils"></span><h1>Module <tt class="docutils literal"><span class="pre">pyqt_fit.utils</span></tt><a class="headerlink" href="#module-pyqt_fit.utils" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>Module contained a variety of small useful functions.</p>
+<dl class="function">
+<dt id="pyqt_fit.utils.namedtuple">
+<tt class="descclassname">pyqt_fit.utils.</tt><tt class="descname">namedtuple</tt><big>(</big><em>typename</em>, <em>field_names</em>, <em>verbose=False</em>, <em>rename=False</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/utils.html#namedtuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.utils.namedtuple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a new subclass of tuple with named fields.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">Point</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s">&#39;Point&#39;</span><span class="p">,</span> <span class="s">&#39;x y&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Point</span><span class="o">.</span><span class="n">__doc__</span>                   <span class="c"># docstring for the new class</span>
+<span class="go">&#39;Point(x, y)&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">22</span><span class="p">)</span>             <span class="c"># instantiate with positional args or keywords</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>                     <span class="c"># indexable like a plain tuple</span>
+<span class="go">33</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">p</span>                        <span class="c"># unpack like a regular tuple</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span>
+<span class="go">(11, 22)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">y</span>                       <span class="c"># fields also accessable by name</span>
+<span class="go">33</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">d</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">_asdict</span><span class="p">()</span>                 <span class="c"># convert to a dictionary</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">d</span><span class="p">[</span><span class="s">&#39;x&#39;</span><span class="p">]</span>
+<span class="go">11</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Point</span><span class="p">(</span><span class="o">**</span><span class="n">d</span><span class="p">)</span>                      <span class="c"># convert from a dictionary</span>
+<span class="go">Point(x=11, y=22)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>               <span class="c"># _replace() is like str.replace() but targets named fields</span>
+<span class="go">Point(x=100, y=22)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="pyqt_fit.utils.approx_jacobian">
+<tt class="descclassname">pyqt_fit.utils.</tt><tt class="descname">approx_jacobian</tt><big>(</big><em>x</em>, <em>func</em>, <em>epsilon</em>, <em>*args</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/utils.html#approx_jacobian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.utils.approx_jacobian" title="Permalink to this definition">¶</a></dt>
+<dd><p>Approximate the Jacobian matrix of callable function func</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> (<em>ndarray</em>) &#8211; The state vector at which the Jacobian matrix is desired</li>
+<li><strong>func</strong> (<em>callable</em>) &#8211; A vector-valued function of the form f(x,*args)</li>
+<li><strong>epsilon</strong> (<em>ndarray</em>) &#8211; The peturbation used to determine the partial derivatives</li>
+<li><strong>args</strong> (<em>tuple</em>) &#8211; Additional arguments passed to func</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An array of dimensions (lenf, lenx) where lenf is the length
+of the outputs of func, and lenx is the number of</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The approximation is done using forward differences</p>
+</div>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_kernels.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kernels</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_utils.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kernels.html" title="Module pyqt_fit.kernels"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

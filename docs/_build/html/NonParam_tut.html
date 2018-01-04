@@ -1,0 +1,299 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Non-Parametric regression tutorial &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="next" title="Kernel Density Estimation tutorial" href="KDE_tut.html" />
+    <link rel="prev" title="Parametric regression tutorial" href="Param_tut.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="KDE_tut.html" title="Kernel Density Estimation tutorial"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Param_tut.html" title="Parametric regression tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="non-parametric-regression-tutorial">
+<h1>Non-Parametric regression tutorial<a class="headerlink" href="#non-parametric-regression-tutorial" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>In general, given a set of observations <span class="math">\((x_i,y_i)\)</span>, with <span class="math">\(x_i =
+(x_{i1}, \ldots, x_{ip})^T \in \R^p\)</span>. We assume there exists a function
+<span class="math">\(f(x)\)</span> such that:</p>
+<div class="math">
+\[y_i = f(x_i) + \epsilon_i\]</div>
+<p>with <span class="math">\(\epsilon_i \in\R\)</span> such that <span class="math">\(E(\epsilon) = 0\)</span>. This function,
+however, is not accessible. So we will consider the function <span class="math">\(\hat{f}\)</span> such that:</p>
+<div class="math">
+\[\hat{f}(x) = \argmin_f \left( y_i - f(x_i) \right)^2\]</div>
+<p>The various methods presented here consists in numerical approximations finding
+the minimum in a part of the function space. The most general method offered by
+this module is called the local-polynomial smoother. It uses the
+Taylor-decomposition of the function f on each point, and a local weigthing of
+the points, to find the values. The function is then defined as:</p>
+<div class="math">
+\[\hat{f}_n(x) = \argmin_{a_0} \sum_i K\left(\frac{x-x_i}{h}\right) \left(y_i - \mathcal{P}_n(x_i)\right)^2\]</div>
+<p>Where <span class="math">\(\mathcal{P}_n\)</span> is a polynomial of order <span class="math">\(n\)</span> whose constant
+term is <span class="math">\(a_0\)</span>, <span class="math">\(K\)</span> is a kernel used for weighing the values and
+<span class="math">\(h\)</span> is the selected bandwidth. In particular, in 1D:</p>
+<div class="math">
+\[\hat{f}_n(x) = \argmin_{a_0} \sum_i K\left(\frac{x-x_i}{h}\right) \left(y_i - a_0 - a_1(x-x_i) - \ldots - a_n\frac{(x-x_i)^n}{n!}\right)^2\]</div>
+<p>In general, higher polynomials will reduce the error term but will overfit the
+data, in particular at the boundaries.</p>
+</div>
+<div class="section" id="a-simple-example">
+<h2>A simple example<a class="headerlink" href="#a-simple-example" title="Permalink to this headline">¶</a></h2>
+<p>For our example, lets first degine our target function:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="mi">3</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">3</span>
+</pre></div>
+</div>
+<p>Then, we will generate our data:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ys</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="o">*</span><span class="n">xs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can then visualize the data:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">:</span><span class="mi">512j</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;r--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;Reference&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="s">&#39;o&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;Data&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;best&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_data.png" src="_images/NonParam_tut_data.png" />
+<p class="caption">Generated data with generative function.</p>
+</div>
+<p>At first, we will try to use a simple Nadaraya-Watson method, or spatial averaging, using a gaussian kernel:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pyqt_fit.nonparam_regression</span> <span class="kn">as</span> <span class="nn">smooth</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pyqt_fit</span> <span class="kn">import</span> <span class="n">npr_methods</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k0</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">SpatialAverage</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k0</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">k0</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s">&quot;Spatial Averaging&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;best&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_spatial_ave.png" src="_images/NonParam_tut_spatial_ave.png" />
+<p class="caption">Result of the spatial averaging.</p>
+</div>
+<p>As always during regressionm we need to look at the residuals:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pyqt_fit</span> <span class="kn">import</span> <span class="n">plot_fit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yopts</span> <span class="o">=</span> <span class="n">k0</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">-</span> <span class="n">yopts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot_fit</span><span class="o">.</span><span class="n">plot_residual_tests</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">yopts</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="s">&#39;Spatial Average&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_spatial_ave_test.png" src="_images/NonParam_tut_spatial_ave_test.png" />
+<p class="caption">Residuals of the Spatial Averaging regression</p>
+</div>
+<p>We can see from the data that the inside of the curve is well-fitted. However,
+the boundaries are not. This is extremely visible on the right boundary, where
+the data is clearly under-fitted. This is a typical problem with spatial
+averaging, as it doesn&#8217;t cope well with strong maxima, especially on the
+boundaries. As an improvement, we can try local-linear or local-polynomial. The
+process is exactly the same:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">k1</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k2</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k3</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k12</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">k1</span><span class="o">.</span><span class="n">fit</span><span class="p">();</span> <span class="n">k2</span><span class="o">.</span><span class="n">fit</span><span class="p">();</span> <span class="n">k3</span><span class="o">.</span><span class="n">fit</span><span class="p">();</span> <span class="n">k12</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="s">&#39;o&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;Data&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">k12</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;b&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;polynom order 12&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">k3</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;y&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;cubic&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">k2</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;quadratic&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">k1</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;linear&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;r--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;Target&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;best&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_spatial_poly.png" src="_images/NonParam_tut_spatial_poly.png" />
+<p class="caption">Result of polynomial fitting with orders 1, 2, 3 and 12</p>
+</div>
+<p>In this example, we can see that linear, quadratic and cubic give very similar
+result, while a polynom of order 12 is clearly over-fitting the data. Looking
+closer at the data, we can see that the quadratic and cubic fits seem to be
+better adapted, as quadratic and cubic both seem to over-fit the data. Note that
+this is not to be generalise and is very dependent on the data you have! We can
+now redo the residual plots:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">yopts</span> <span class="o">=</span> <span class="n">k1</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">-</span> <span class="n">yopts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot_fit</span><span class="o">.</span><span class="n">plot_residual_tests</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">yopts</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="s">&#39;Local Linear&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_spatial_ll_test.png" src="_images/NonParam_tut_spatial_ll_test.png" />
+<p class="caption">Residuals of the Local Linear Regression</p>
+</div>
+<p>We can also look at the residuals for the quadratic polynomial:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">yopts</span> <span class="o">=</span> <span class="n">k2</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">-</span> <span class="n">yopts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot_fit</span><span class="o">.</span><span class="n">plot_residual_tests</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">yopts</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="s">&#39;Local Quadratic&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_spatial_lq_test.png" src="_images/NonParam_tut_spatial_lq_test.png" />
+<p class="caption">Residuals of the Local Quadratic Regression</p>
+</div>
+<p>We can see from the structure of the noise that the quadratic curve seems indeed
+to fit much better the data. Unlike in the local linear regression, we do not
+have significant bias along the X axis. Also, the residuals seem &#8220;more normal&#8221;
+(i.e. the points in the QQ-plot are better aligned)
+than in the linear case.</p>
+</div>
+<div class="section" id="confidence-intervals">
+<h2>Confidence Intervals<a class="headerlink" href="#confidence-intervals" title="Permalink to this headline">¶</a></h2>
+<p>Confidence intervals can be computed using bootstrapping. Based on the previous
+paragraph, you can get confidence interval on the estimation with:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pyqt_fit.bootstrap</span> <span class="kn">as</span> <span class="nn">bs</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">:</span><span class="mi">512j</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">):</span>
+<span class="gp">... </span>  <span class="n">est</span> <span class="o">=</span> <span class="n">smooth</span><span class="o">.</span><span class="n">NonParamRegression</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">npr_methods</span><span class="o">.</span><span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="gp">... </span>  <span class="n">est</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="gp">... </span>  <span class="k">return</span> <span class="n">est</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">bs</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">(</span><span class="n">fit</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">eval_points</span> <span class="o">=</span> <span class="n">grid</span><span class="p">,</span> <span class="n">CI</span> <span class="o">=</span> <span class="p">(</span><span class="mi">95</span><span class="p">,</span><span class="mi">99</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>This will compute the 95% and 99% confidence intervals for the quadratic
+fitting. The result is a named tuple
+<a class="reference internal" href="mod_bootstrap.html#pyqt_fit.bootstrap.BootstrapResult" title="pyqt_fit.bootstrap.BootstrapResult"><tt class="xref py py-class docutils literal"><span class="pre">pyqt_fit.bootstrap.BootstrapResult</span></tt></a>. The most important field are
+<tt class="docutils literal"><span class="pre">y_est</span></tt> and <tt class="docutils literal"><span class="pre">CIs</span></tt> that provide the estimated values and the confidence
+intervals for the curve.</p>
+<p>The data can be plotted with:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="s">&#39;o&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;Data&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">y_fit</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&quot;Fitted curve&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">CIs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;g--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;95% CI&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">CIs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="s">&#39;g--&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">CIs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">CIs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="figure align-center">
+<img alt="_images/NonParam_tut_data_CIs.png" src="_images/NonParam_tut_data_CIs.png" />
+<p class="caption">Confidence intervals</p>
+</div>
+</div>
+<div class="section" id="types-of-regressions">
+<h2>Types of Regressions<a class="headerlink" href="#types-of-regressions" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Non-Parametric regression tutorial</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#a-simple-example">A simple example</a></li>
+<li><a class="reference internal" href="#confidence-intervals">Confidence Intervals</a></li>
+<li><a class="reference internal" href="#types-of-regressions">Types of Regressions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Param_tut.html"
+                        title="previous chapter">Parametric regression tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="KDE_tut.html"
+                        title="next chapter">Kernel Density Estimation tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/NonParam_tut.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="KDE_tut.html" title="Kernel Density Estimation tutorial"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Param_tut.html" title="Parametric regression tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

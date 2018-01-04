@@ -1,0 +1,333 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Regression using the GUI - tutorial &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="next" title="Parametric regression tutorial" href="Param_tut.html" />
+    <link rel="prev" title="Introduction to PyQt-Fit" href="intro.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Param_tut.html" title="Parametric regression tutorial"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction to PyQt-Fit"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="regression-using-the-gui-tutorial">
+<h1>Regression using the GUI - tutorial<a class="headerlink" href="#regression-using-the-gui-tutorial" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="using-the-interface">
+<h2>Using the interface<a class="headerlink" href="#using-the-interface" title="Permalink to this headline">¶</a></h2>
+<p>The script is starting from the command line with:</p>
+<div class="highlight-console"><div class="highlight"><pre><span class="gp">$</span> pyqt_fit1d.py
+</pre></div>
+</div>
+<p>Once starting the script, the interface will look like this:</p>
+<div class="figure align-center" id="gui-tut-gui">
+<img alt="Main GUI of PyQt-Fit" src="_images/PyQt-GUI.png" />
+<p class="caption">Main GUI of PyQt-Fit</p>
+</div>
+<p>The interface is organised in 4 sections:</p>
+<ol class="arabic simple">
+<li>the top-left of the window to define the data to load and process;</li>
+<li>the bottom-left to define the function to be fitted and its parameters;</li>
+<li>the top-right to define the options to compute confidence intervals;</li>
+<li>the bottom-right to define the output options.</li>
+</ol>
+<div class="section" id="loading-the-data">
+<h3>Loading the Data<a class="headerlink" href="#loading-the-data" title="Permalink to this headline">¶</a></h3>
+<p>The application can load CSV files. The first line of the file must be the name
+of the available datasets. In case of missing data, only what is available on
+the two selected datasets are kept.</p>
+<p>Once loaded, the available data sets will appear as option in the combo-boxes.
+You need to select for the X axis the explaining variable and the explained
+variable on the Y axis.</p>
+</div>
+<div class="section" id="defining-the-regression-function">
+<h3>Defining the regression function<a class="headerlink" href="#defining-the-regression-function" title="Permalink to this headline">¶</a></h3>
+<p>First, you will want to choose the function. The available functions are listed
+in the combo box. When selecting a function, the list of parameters appear in
+the list below. The value presented are estimated are a quick estimation from
+the data. You can edit them by double-clicking. It is also where you can
+specify if the parameter is of known value, and should therefore be fixed.</p>
+<p>If needed, you can also change the computation of the residuals. By default
+there are two kind of residuals:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Standard</dt>
+<dd>residuals are simply the difference between the estimated and observed value.</dd>
+<dt>Difference of the logs</dt>
+<dd>residual are the difference of the log of the values.</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="plotting-and-output">
+<h3>Plotting and output<a class="headerlink" href="#plotting-and-output" title="Permalink to this headline">¶</a></h3>
+<p>By default, the output consists in the data points, and the fitted function,
+interpolated on the whole range of the input data. If is, however, possible to
+both change the range of data, or even evaluate the function on the existing
+data points rather than interpolated ones.</p>
+<p>The output also presents a window to evaluate the quality of the fitting:</p>
+<img alt="_images/PyQt-residuals.png" class="align-center" src="_images/PyQt-residuals.png" />
+<p>In general, the dashed red line is the target to achieve for a good fitting.
+When present the green line is the estimates that should match the red line.</p>
+<p>The top-left graph presents the distribution of the residuals against the
+explaining variable. The green line shows a local-linear regression of the
+residuals. It should be aligned with the dashed red line.</p>
+<p>The top-right graph presents the distribution of the square root of the
+standardized residuals against the explained variable. The purpose of this
+graph is to test the uniformity of the distribution. The green line is again a
+local-linear regression of the points. The line should be as flat and
+horizontal as possible. If the distribution is normal, the green line should
+match the dashed red line.</p>
+<p>The bottom right graph presents a histogram of the residuals. For parametric
+fitting, the residuals should globally be normal.</p>
+<p>The bottom left graph presents a QQ-plot, matching the theoretical quantiles
+and the standardized residuals. If the residuals are normally distributed, the
+points should be on the dashed red line.</p>
+<p>The result of the fitting can also be output. What is written correspond
+exactly to what is displayed. The output is also a CSV file, and is meant to be
+readable by a human.</p>
+</div>
+<div class="section" id="confidence-interval">
+<h3>Confidence interval<a class="headerlink" href="#confidence-interval" title="Permalink to this headline">¶</a></h3>
+<p>Confidence interval can be computed using bootstrapping. There are two kinds of
+boostrapping implemented:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>regular bootstrapping</dt>
+<dd>The data are resampled, the pairs <span class="math">\((x,y)\)</span> are kept. There is no
+assumption made. But is is often troublesome in regression, tending to
+flatten the results.</dd>
+<dt>residual resampling</dt>
+<dd>After the first evaluation, for each pair <span class="math">\((x,y)\)</span>, we find the
+estimated value <span class="math">\(\hat{y}\)</span>. Then, the residuals are re-sampled, and
+new pairs <span class="math">\((x,\hat{y}+r')\)</span> are recreated, <span class="math">\(r'\)</span> being the
+resampled residual.</dd>
+</dl>
+</div></blockquote>
+<p>The intervals ought to be a list of semi-colon separated values of percentages.
+At last, the number of repeats will define how many re-sampling there will be.</p>
+</div>
+</div>
+<div class="section" id="defining-your-own-function">
+<h2>Defining your own function<a class="headerlink" href="#defining-your-own-function" title="Permalink to this headline">¶</a></h2>
+<p>First, you need to define the environment variable <tt class="docutils literal"><span class="pre">PYQTFIT_PATH</span></tt> and add a
+list of colon-separated folders. In each folder, you can add python modules in
+a <tt class="docutils literal"><span class="pre">functions</span></tt> sub-folder. For example, if the path <tt class="docutils literal"><span class="pre">~/.pyqtfit</span></tt> is in
+<tt class="docutils literal"><span class="pre">PYQTFIT_PATH</span></tt>, then you need to create a folder <tt class="docutils literal"><span class="pre">~/.pyqtfit/functions</span></tt>, in
+which you can add your own python modules.</p>
+<p>Which module will be loaded, and the functions defined in it will be added in
+the interface. A function is a class or an object with the following
+properties:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">name</span></tt></dt>
+<dd>Name of the function</dd>
+<dt><tt class="docutils literal"><span class="pre">description</span></tt></dt>
+<dd>Equation of the function</dd>
+<dt><tt class="docutils literal"><span class="pre">args</span></tt></dt>
+<dd>List of arguments</dd>
+<dt><tt class="docutils literal"><span class="pre">__call__(args,</span> <span class="pre">x)</span></tt></dt>
+<dd>Compute the function. The <tt class="docutils literal"><span class="pre">args</span></tt> argument is a tuple or list with as many
+elements are in the <tt class="docutils literal"><span class="pre">args</span></tt> attribute of the function.</dd>
+<dt><tt class="docutils literal"><span class="pre">init_args(x,y)</span></tt></dt>
+<dd>Function guessing some initial arguments from the data. It must return a
+list or tuple of values, one per argument to the function.</dd>
+<dt><tt class="docutils literal"><span class="pre">Dfun(args,</span> <span class="pre">x)</span></tt></dt>
+<dd>Compute the jacobian of the function at the points <tt class="docutils literal"><span class="pre">c</span></tt>. If the function
+is not provided, the attribute should be set to None, and the jacobian will
+be estimated numerically.</dd>
+</dl>
+</div></blockquote>
+<p>As an example, here is the definition of the cosine function:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="k">class</span> <span class="nc">Cosine</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;Cosine&quot;</span>
+  <span class="n">args</span> <span class="o">=</span> <span class="s">&quot;y0 C phi t&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+  <span class="n">description</span> <span class="o">=</span> <span class="s">&quot;y = y0 + X cos(phi x + t)&quot;</span>
+
+  <span class="nd">@staticmethod</span>
+  <span class="k">def</span> <span class="nf">__call__</span><span class="p">((</span><span class="n">y0</span><span class="p">,</span><span class="n">C</span><span class="p">,</span><span class="n">phi</span><span class="p">,</span><span class="n">t</span><span class="p">),</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">C</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="o">*</span><span class="n">x</span><span class="o">+</span><span class="n">t</span><span class="p">)</span>
+
+  <span class="n">Dfun</span> <span class="o">=</span> <span class="bp">None</span>
+
+  <span class="nd">@staticmethod</span>
+  <span class="k">def</span> <span class="nf">init_args</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">ptp</span><span class="p">()</span><span class="o">/</span><span class="mi">2</span>
+    <span class="n">y0</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">+</span> <span class="n">C</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="n">x</span><span class="o">.</span><span class="n">ptp</span><span class="p">()</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">y0</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="defining-your-own-residual">
+<h2>Defining your own residual<a class="headerlink" href="#defining-your-own-residual" title="Permalink to this headline">¶</a></h2>
+<p>Similarly to the functions, it is possible to implement your own residual. The
+rediduals need to be in a <tt class="docutils literal"><span class="pre">residuals</span></tt> folder. And they need to be object or
+classes with the following properties:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">name</span></tt></dt>
+<dd>Name of the residuals</dd>
+<dt><tt class="docutils literal"><span class="pre">description</span></tt></dt>
+<dd>Formula used to compute the residuals</dd>
+<dt><tt class="docutils literal"><span class="pre">__call__(y1,</span> <span class="pre">y0)</span></tt></dt>
+<dd>Function computing the residuals, <tt class="docutils literal"><span class="pre">y1</span></tt> being the original data and <tt class="docutils literal"><span class="pre">y0</span></tt>
+the estimated data.</dd>
+<dt><tt class="docutils literal"><span class="pre">invert(y,</span> <span class="pre">res)</span></tt></dt>
+<dd>Function applying the residual to the estimated data.</dd>
+<dt><tt class="docutils literal"><span class="pre">Dfun(y1,</span> <span class="pre">y0,</span> <span class="pre">dy)</span></tt></dt>
+<dd>Compute the jacobian of the residuals. <tt class="docutils literal"><span class="pre">y1</span></tt> is the original data, <tt class="docutils literal"><span class="pre">y0</span></tt>
+the estaimted data and <tt class="docutils literal"><span class="pre">dy</span></tt> the jacobian of the function at <tt class="docutils literal"><span class="pre">y0</span></tt>.</dd>
+</dl>
+</div></blockquote>
+<p>As an example, here is the definition of the log-residuals:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">LogResiduals</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;Difference of the logs&quot;</span>
+  <span class="n">description</span> <span class="o">=</span> <span class="s">&quot;log(y1/y0)&quot;</span>
+
+  <span class="nd">@staticmethod</span>
+  <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="n">y1</span><span class="p">,</span> <span class="n">y0</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">log</span><span class="p">(</span><span class="n">y1</span><span class="o">/</span><span class="n">y0</span><span class="p">)</span>
+
+  <span class="nd">@staticmethod</span>
+  <span class="k">def</span> <span class="nf">Dfun</span><span class="p">(</span><span class="n">y1</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    J(log(y1/y0)) = -J(y0)/y0</span>
+<span class="sd">    where J is the jacobian and division is element-wise (per row)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">dy</span><span class="o">/</span><span class="n">y0</span><span class="p">[</span><span class="n">newaxis</span><span class="p">,:]</span>
+
+  <span class="nd">@staticmethod</span>
+  <span class="k">def</span> <span class="nf">invert</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Multiply the value by the exponential of the residual</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">y</span><span class="o">*</span><span class="n">exp</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Regression using the GUI - tutorial</a><ul>
+<li><a class="reference internal" href="#using-the-interface">Using the interface</a><ul>
+<li><a class="reference internal" href="#loading-the-data">Loading the Data</a></li>
+<li><a class="reference internal" href="#defining-the-regression-function">Defining the regression function</a></li>
+<li><a class="reference internal" href="#plotting-and-output">Plotting and output</a></li>
+<li><a class="reference internal" href="#confidence-interval">Confidence interval</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#defining-your-own-function">Defining your own function</a></li>
+<li><a class="reference internal" href="#defining-your-own-residual">Defining your own residual</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="intro.html"
+                        title="previous chapter">Introduction to PyQt-Fit</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Param_tut.html"
+                        title="next chapter">Parametric regression tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/GUI_tut.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Param_tut.html" title="Parametric regression tutorial"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction to PyQt-Fit"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

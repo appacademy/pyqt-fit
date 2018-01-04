@@ -1,0 +1,939 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.kde_methods &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="next" title="Module pyqt_fit.kernels" href="mod_kernels.html" />
+    <link rel="prev" title="Module pyqt_fit.kde" href="mod_kde.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kernels.html" title="Module pyqt_fit.kernels"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mod_kde.html" title="Module pyqt_fit.kde"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.kde_methods">
+<span id="module-pyqt-fit-kde-methods"></span><h1>Module <a class="reference internal" href="#module-pyqt_fit.kde_methods" title="pyqt_fit.kde_methods"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.kde_methods</span></tt></a><a class="headerlink" href="#module-pyqt_fit.kde_methods" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>This module contains a set of methods to compute univariate KDEs. See the 
+objects in the <a class="reference internal" href="mod_kde.html#module-pyqt_fit.kde" title="pyqt_fit.kde"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.kde</span></tt></a> module for more details on these methods.</p>
+<p>These methods provide various variations on <span class="math">\(\hat{K}(x;X,h,L,U)\)</span>, the 
+modified kernel evaluated on the point <span class="math">\(x\)</span> based on the estimation points 
+<span class="math">\(X\)</span>, a bandwidth <span class="math">\(h\)</span> and on the domain <span class="math">\([L,U]\)</span>.</p>
+<p>The definitions of the methods rely on the following definitions:</p>
+<div class="math">
+\[\begin{split}\begin{array}{rcl}
+  a_0(l,u) &amp;=&amp; \int_l^u K(z) dz\\
+  a_1(l,u) &amp;=&amp; \int_l^u zK(z) dz\\
+  a_2(l,u) &amp;=&amp; \int_l^u z^2K(z) dz
+\end{array}\end{split}\]</div>
+<p>These definitions correspond to:</p>
+<ul class="simple">
+<li><span class="math">\(a_0(l,u)\)</span> &#8211; The partial cumulative distribution function</li>
+<li><span class="math">\(a_1(l,u)\)</span> &#8211; The partial first moment of the distribution. In 
+particular, <span class="math">\(a_1(-\infty, \infty)\)</span> is the mean of the kernel (i.e. and 
+should be 0).</li>
+<li><span class="math">\(a_2(l,u)\)</span> &#8211; The partial second moment of the distribution. In 
+particular, <span class="math">\(a_2(-\infty, \infty)\)</span> is the variance of the kernel (i.e. 
+which should be close to 1, unless using higher order kernel).</li>
+</ul>
+<div class="section" id="references">
+<h2>References:<a class="headerlink" href="#references" title="Permalink to this headline">¶</a></h2>
+<table class="docutils footnote" frame="void" id="id1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[1]</td><td><em>(<a class="fn-backref" href="#id2">1</a>, <a class="fn-backref" href="#id3">2</a>)</em> Jones, M. C. 1993. Simple boundary correction for kernel density
+estimation. Statistics and Computing 3: 135&#8211;146.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="univariate-kde-estimation-methods">
+<h2>Univariate KDE estimation methods<a class="headerlink" href="#univariate-kde-estimation-methods" title="Permalink to this headline">¶</a></h2>
+<p>The exact definition of such a method is found in <a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D.method" title="pyqt_fit.kde.KDE1D.method"><tt class="xref py py-attr docutils literal"><span class="pre">pyqt_fit.kde.KDE1D.method</span></tt></a></p>
+<dl class="function">
+<dt id="pyqt_fit.kde_methods.generate_grid">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">generate_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#generate_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.generate_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper method returning a regular grid on the domain of the KDE.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<em>KDE1D</em>) &#8211; Object describing the KDE computation. The object must
+have been fitted!</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; Number of points in the grid</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far past the maximum should
+the grid extend to, in term of KDE bandwidth</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A vector of N regularly spaced points</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pyqt_fit.kde_methods.compute_bandwidth">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">compute_bandwidth</tt><big>(</big><em>kde</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#compute_bandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.compute_bandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the bandwidth and covariance for the model, based of its xdata attribute</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">KDE1DMethod</tt><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class providing a default grid method and a default method for 
+unbounded evaluation of the PDF and CDF. It also provides default methods 
+for the other metrics, based on PDF and CDF calculations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Note:</th><td class="field-body"><ul class="first last simple">
+<li>It is expected that all grid methods will return the same grid if 
+used with the same arguments.</li>
+<li>It is fair to assume all array-like arguments will be at least 1D 
+arrays.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The following methods are interface methods that should be overriden with ones specific to the implemented method.</p>
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.fit">
+<tt class="descname">fit</tt><big>(</big><em>kde</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method called by the KDE1D object right after fitting to allow for 
+one-time calculation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object being fitted</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body">Compute the bandwidth and covariance if specified as functions</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.pdf">
+<tt class="descname">pdf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.pdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.pdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the PDF of the estimated distribution.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the distribution on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the PDF.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Direct implementation of the formula for unbounded pdf
+computation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.__call__">
+<tt class="descname">__call__</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.__call__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call the <a class="reference internal" href="#pyqt_fit.kde_methods.KDE1DMethod.pdf" title="pyqt_fit.kde_methods.KDE1DMethod.pdf"><tt class="xref py py-meth docutils literal"><span class="pre">pdf()</span></tt></a> method.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.grid">
+<tt class="descname">grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the PDF of the distribution on a regular grid with at least 
+<tt class="docutils literal"><span class="pre">N</span></tt> elements.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the PDF has been estimated on, and the
+estimations.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Evaluate <span class="math">\(pdf(x)\)</span> on a grid generated using
+<a class="reference internal" href="#pyqt_fit.kde_methods.generate_grid" title="pyqt_fit.kde_methods.generate_grid"><tt class="xref py py-func docutils literal"><span class="pre">generate_grid()</span></tt></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.cdf">
+<tt class="descname">cdf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the CDF of the estimated distribution, defined as:</p>
+<div class="math">
+\[cdf(x) = P(X \leq x) = \int_l^x p(t) dt\]</div>
+<p>where <span class="math">\(l\)</span> is the lower bound of the distribution domain and 
+<span class="math">\(p\)</span> the density of probability</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the CDF on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the CDF.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Direct implementation of the formula for unbounded CDF
+computation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.cdf_grid">
+<tt class="descname">cdf_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.cdf_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.cdf_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the CDF of the distribution on a regular grid with at least 
+<tt class="docutils literal"><span class="pre">N</span></tt> elements.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the CDF has been estimated on, and the
+estimations.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Evaluate <span class="math">\(cdf(x)\)</span> on a grid generated using
+<a class="reference internal" href="#pyqt_fit.kde_methods.generate_grid" title="pyqt_fit.kde_methods.generate_grid"><tt class="xref py py-func docutils literal"><span class="pre">generate_grid()</span></tt></a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.icdf">
+<tt class="descname">icdf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.icdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.icdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the inverse cumulative distribution (quantile) function, 
+defined as:</p>
+<div class="math">
+\[icdf(p) = \inf\left\{x\in\mathbb{R} : cdf(x) \geq p\right\}\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the iCDF on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the iCDF.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">First approximate the result using linear interpolation on
+the CDF and refine the result numerically using the Newton method.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.icdf_grid">
+<tt class="descname">icdf_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.icdf_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.icdf_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the inverse cumulative distribution (quantile) function on 
+a grid.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Note:</th><td class="field-body"><p class="first">The default implementation is not as good an approximation as
+the plain icdf default method.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the CDF has been estimated on, and the
+estimations.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Linear interpolation of the inverse CDF on a grid</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.sf">
+<tt class="descname">sf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.sf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.sf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the survival function, defined as:</p>
+<div class="math">
+\[sf(x) = P(X \geq x) = \int_x^u p(t) dt = 1 - cdf(x)\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the survival function on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the survival function.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(1 - cdf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.sf_grid">
+<tt class="descname">sf_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.sf_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.sf_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the survival function on a grid.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the survival function has been
+estimated on, and the estimations.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(1 - cdf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.isf">
+<tt class="descname">isf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.isf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.isf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the inverse survival function, defined as:</p>
+<div class="math">
+\[isf(p) = \sup\left\{x\in\mathbb{R} : sf(x) \leq p\right\}\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the iSF on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the inverse survival function.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute <span class="math">\(icdf(1-p)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.isf_grid">
+<tt class="descname">isf_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.isf_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.isf_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the inverse survival function on a grid.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Note:</th><td class="field-body"><p class="first">The default implementation is not as good an approximation as
+the plain isf default method.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the CDF has been estimated on, and the
+estimations.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Linear interpolation of the inverse survival function on a grid</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.hazard">
+<tt class="descname">hazard</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.hazard"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.hazard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the hazard function evaluated on the points.</p>
+<p>The hazard function is defined as:</p>
+<div class="math">
+\[h(x) = \frac{p(x)}{sf(x)}\]</div>
+<p>where <span class="math">\(p(x)\)</span> is the probability density function and 
+<span class="math">\(sf(x)\)</span> is the survival function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the hazard function on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the hazard function</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(pdf(x) / sf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.hazard_grid">
+<tt class="descname">hazard_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.hazard_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.hazard_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the hazard function on a grid.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the hazard function has been
+estimated on, and the estimations.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(pdf(x) / sf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.cumhazard">
+<tt class="descname">cumhazard</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.cumhazard"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.cumhazard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the cumulative hazard function evaluated on the points.</p>
+<p>The hazard function is defined as:</p>
+<div class="math">
+\[ch(x) = \int_l^x h(t) dt = -\ln sf(x)\]</div>
+<p>where <span class="math">\(l\)</span> is the lower bound of the domain, <span class="math">\(h\)</span> the hazard 
+function and <span class="math">\(sf\)</span> the survival function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; Points to evaluate the cumulative hazard function on</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; Result object. If must have the same shapes as <tt class="docutils literal"><span class="pre">points</span></tt></li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Returns the <tt class="docutils literal"><span class="pre">out</span></tt> variable, updated with the cumulative hazard function</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(-\ln sf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.cumhazard_grid">
+<tt class="descname">cumhazard_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.cumhazard_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.cumhazard_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the hazard function on a grid.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>kde</strong> (<a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><em>pyqt_fit.kde.KDE1D</em></a>) &#8211; KDE object</li>
+<li><strong>N</strong> (<em>int</em>) &#8211; minimum number of element in the returned grid. Most
+methods will want to round it to the next power of 2.</li>
+<li><strong>cut</strong> (<em>float</em>) &#8211; for unbounded domains, how far from the last data
+point should the grid go, as a fraction of the bandwidth.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">(ndarray, ndarray)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The array of positions the hazard function has been
+estimated on, and the estimations.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Default:</th><td class="field-body"><p class="first last">Compute explicitly <span class="math">\(-\ln sf(x)\)</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.name">
+<tt class="descname">name</tt><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.name" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">str</td>
+</tr>
+</tbody>
+</table>
+<p>Specify a human-readable name for the method, for presentation purposes.</p>
+</dd></dl>
+
+<p>But the class also provide a number of utility methods to help implementing you own:</p>
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf">
+<tt class="descname">numeric_cdf</tt><big>(</big><em>kde</em>, <em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.numeric_cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provide a numeric approximation of the CDF based on integrating the pdf 
+using <tt class="xref py py-func docutils literal"><span class="pre">scipy.integrate.quad()</span></tt>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf_grid">
+<tt class="descname">numeric_cdf_grid</tt><big>(</big><em>kde</em>, <em>N=None</em>, <em>cut=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#KDE1DMethod.numeric_cdf_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the CDF on a grid using a trivial, but fast, numeric 
+integration of the pdf.</p>
+</dd></dl>
+
+</dd></dl>
+
+<div class="section" id="estimation-methods">
+<h3>Estimation methods<a class="headerlink" href="#estimation-methods" title="Permalink to this headline">¶</a></h3>
+<p>Here are the methods implemented in pyqt_fit. To access these methods, the simplest is to use the instances provided.</p>
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.unbounded">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">unbounded</tt><a class="headerlink" href="#pyqt_fit.kde_methods.unbounded" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instance of the <a class="reference internal" href="#pyqt_fit.kde_methods.KDE1DMethod" title="pyqt_fit.kde_methods.KDE1DMethod"><tt class="xref py py-class docutils literal"><span class="pre">KDE1DMethod</span></tt></a> class.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.renormalization">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">renormalization</tt><a class="headerlink" href="#pyqt_fit.kde_methods.renormalization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instance of the <a class="reference internal" href="#pyqt_fit.kde_methods.RenormalizationMethod" title="pyqt_fit.kde_methods.RenormalizationMethod"><tt class="xref py py-class docutils literal"><span class="pre">RenormalizationMethod</span></tt></a> class.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.reflection">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">reflection</tt><a class="headerlink" href="#pyqt_fit.kde_methods.reflection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instance of the <a class="reference internal" href="#pyqt_fit.kde_methods.ReflectionMethod" title="pyqt_fit.kde_methods.ReflectionMethod"><tt class="xref py py-class docutils literal"><span class="pre">ReflectionMethod</span></tt></a> class.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.linear_combination">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">linear_combination</tt><a class="headerlink" href="#pyqt_fit.kde_methods.linear_combination" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instance of the <a class="reference internal" href="#pyqt_fit.kde_methods.LinearCombinationMethod" title="pyqt_fit.kde_methods.LinearCombinationMethod"><tt class="xref py py-class docutils literal"><span class="pre">LinearCombinationMethod</span></tt></a> class.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.cyclic">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">cyclic</tt><a class="headerlink" href="#pyqt_fit.kde_methods.cyclic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instance of the <a class="reference internal" href="#pyqt_fit.kde_methods.CyclicMethod" title="pyqt_fit.kde_methods.CyclicMethod"><tt class="xref py py-class docutils literal"><span class="pre">CyclicMethod</span></tt></a> class.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pyqt_fit.kde_methods.transformKDE1D">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">transformKDE1D</tt><big>(</big><em>trans</em>, <em>method=None</em>, <em>inv=None</em>, <em>Dinv=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#transformKDE1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.transformKDE1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates an instance of <a class="reference internal" href="#pyqt_fit.kde_methods.TransformKDE1DMethod" title="pyqt_fit.kde_methods.TransformKDE1DMethod"><tt class="xref py py-class docutils literal"><span class="pre">TransformKDE1DMethod</span></tt></a></p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.kde_methods.default_method">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">default_method</tt><a class="headerlink" href="#pyqt_fit.kde_methods.default_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method used by <a class="reference internal" href="mod_kde.html#pyqt_fit.kde.KDE1D" title="pyqt_fit.kde.KDE1D"><tt class="xref py py-class docutils literal"><span class="pre">pyqt_fit.kde.KDE1D</span></tt></a> by default.
+:Default: <a class="reference internal" href="#pyqt_fit.kde_methods.reflection" title="pyqt_fit.kde_methods.reflection"><tt class="xref py py-data docutils literal"><span class="pre">reflection</span></tt></a></p>
+</dd></dl>
+
+</div>
+<div class="section" id="classes-implementing-the-estimation-methods">
+<h3>Classes implementing the estimation methods<a class="headerlink" href="#classes-implementing-the-estimation-methods" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.RenormalizationMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">RenormalizationMethod</tt><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#RenormalizationMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.RenormalizationMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method consists in using the normal kernel method, but renormalize 
+to only take into account the part of the kernel within the domain of the 
+density <a class="footnote-reference" href="#id1" id="id2">[1]</a>.</p>
+<p>The kernel is then replaced with:</p>
+<div class="math">
+\[\hat{K}(x;X,h,L,U) \triangleq \frac{1}{a_0(u,l)} K(z)\]</div>
+<p>where:</p>
+<div class="math">
+\[z = \frac{x-X}{h} \qquad l = \frac{L-x}{h} \qquad u = \frac{U-x}{h}\]</div>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.ReflectionMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">ReflectionMethod</tt><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#ReflectionMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.ReflectionMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method consist in simulating the reflection of the data left and 
+right of the boundaries. If one of the boundary is infinite, then the 
+data is not reflected in that direction. To this purpose, the kernel is 
+replaced with:</p>
+<div class="math">
+\[\hat{K}(x; X, h, L, U) \triangleq K(z)
++ K\left(\frac{x+X-2L}{h}\right)
++ K\left(\frac{x+X-2U}{h}\right)\]</div>
+<p>where:</p>
+<div class="math">
+\[z = \frac{x-X}{h}\]</div>
+<p>See the <a class="reference internal" href="#module-pyqt_fit.kde_methods" title="pyqt_fit.kde_methods"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.kde_methods</span></tt></a> for a description of the various 
+symbols.</p>
+<p>When computing grids, if the bandwidth is constant, the result is computing 
+using CDT.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.LinearCombinationMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">LinearCombinationMethod</tt><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#LinearCombinationMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.LinearCombinationMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method uses the linear combination correction published in <a class="footnote-reference" href="#id1" id="id3">[1]</a>.</p>
+<p>The estimation is done with a modified kernel given by:</p>
+<div class="math">
+\[\hat{K}(x;X,h,L,U) \triangleq \frac{a_2(l,u) - a_1(-u, -l) z}{a_2(l,u)a_0(l,u)
+- a_1(-u,-l)^2} K(z)\]</div>
+<p>where:</p>
+<div class="math">
+\[z = \frac{x-X}{h} \qquad l = \frac{L-x}{h} \qquad u = \frac{U-x}{h}\]</div>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.CyclicMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">CyclicMethod</tt><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#CyclicMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.CyclicMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method assumes cyclic boundary conditions and works only for closed 
+boundaries.</p>
+<p>The estimation is done with a modified kernel given by:</p>
+<div class="math">
+\[\hat{K}(x; X, h, L, U) \triangleq K(z)
++ K\left(z - \frac{U-L}{h}\right)
++ K\left(z + \frac{U-L}{h}\right)\]</div>
+<p>where:</p>
+<div class="math">
+\[z = \frac{x-X}{h}\]</div>
+<p>When computing grids, if the bandwidth is constant, the result is computing 
+using FFT.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pyqt_fit.kde_methods.create_transform">
+<tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">create_transform</tt><big>(</big><em>obj</em>, <em>inv=None</em>, <em>Dinv=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#create_transform"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.create_transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a transform object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>obj</strong> (<em>fun</em>) &#8211; This can be either simple a function, or a function-object with an &#8216;inv&#8217; and/or &#8216;Dinv&#8217; attributes
+containing the inverse function and its derivative (respectively)</li>
+<li><strong>inv</strong> (<em>fun</em>) &#8211; If provided, inverse of the main function</li>
+<li><strong>Dinv</strong> (<em>fun</em>) &#8211; If provided, derivative of the inverse function</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">Transform</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A transform object with function, inverse and derivative of the inverse</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The inverse function must be provided, either as argument or as attribute to the object. The derivative of the 
+inverse will be estimated numerically if not provided.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Note:</th><td class="field-body">All the functions should accept an <tt class="docutils literal"><span class="pre">out</span></tt> argument to store the result.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kde_methods.TransformKDE1DMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kde_methods.</tt><tt class="descname">TransformKDE1DMethod</tt><big>(</big><em>trans</em>, <em>method=None</em>, <em>inv=None</em>, <em>Dinv=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kde_methods.html#TransformKDE1DMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kde_methods.TransformKDE1DMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Kernel Density Estimate of a dataset, transforming it first to 
+a domain where distances are &#8220;more meaningful&#8221;.</p>
+<p>Often, KDE is best estimated in a different domain. This object takes 
+a KDE1D object (or one compatible), and a transformation function.</p>
+<p>Given a random variable <span class="math">\(X\)</span> of distribution <span class="math">\(f_X\)</span>, the random 
+variable <span class="math">\(Y = g(X)\)</span> has a distribution <span class="math">\(f_Y\)</span> given by:</p>
+<div class="math">
+\[f_Y(y) = \left| \frac{1}{g'(g^{-1}(y))} \right| \cdot f_X(g^{-1}(y))\]</div>
+<p>In our term, <span class="math">\(Y\)</span> is the random variable the user is interested in, 
+and <span class="math">\(X\)</span> the random variable we can estimate using the KDE. In this 
+case, <span class="math">\(g\)</span> is the transform from <span class="math">\(Y\)</span> to <span class="math">\(X\)</span>.</p>
+<p>So to estimate the distribution on a set of points given in <span class="math">\(x\)</span>, we 
+need a total of three functions:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Direct function: transform from the original space to the one in 
+which the KDE will be perform (i.e. <span class="math">\(g^{-1}: y \mapsto x\)</span>)</li>
+<li>Invert function: transform from the KDE space to the original one 
+(i.e. <span class="math">\(g: x \mapsto y\)</span>)</li>
+<li>Derivative of the invert function</li>
+</ul>
+</div></blockquote>
+<p>If the derivative is not provided, it will be estimated numerically.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>trans</strong> &#8211; Either a simple function, or a function object with
+attributes <cite>inv</cite> and <cite>Dinv</cite> to use in case they are not provided as 
+arguments. The helper <a class="reference internal" href="#pyqt_fit.kde_methods.create_transform" title="pyqt_fit.kde_methods.create_transform"><tt class="xref py py-func docutils literal"><span class="pre">create_transform()</span></tt></a> will provide numeric 
+approximation of the derivative if required.</li>
+<li><strong>method</strong> &#8211; instance of KDE1DMethod used in the transformed domain.
+Default is <a class="reference internal" href="#pyqt_fit.kde_methods.KDE1DMethod" title="pyqt_fit.kde_methods.KDE1DMethod"><tt class="xref py py-class docutils literal"><span class="pre">pyqt_fit.kde_methods.KDE1DMethod</span></tt></a></li>
+<li><strong>inv</strong> &#8211; Invert of the function. If not provided, <cite>trans</cite> must have
+it as attribute.</li>
+<li><strong>Dinv</strong> &#8211; Derivative of the invert function.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Note:</th><td class="field-body"><p class="first last">all given functions should accept an optional <tt class="docutils literal"><span class="pre">out</span></tt> argument to
+get a pre-allocated array to store its result. Also the <tt class="docutils literal"><span class="pre">out</span></tt> 
+parameter may be one of the input argument.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kde_methods</span></tt></a><ul>
+<li><a class="reference internal" href="#references">References:</a></li>
+<li><a class="reference internal" href="#univariate-kde-estimation-methods">Univariate KDE estimation methods</a><ul>
+<li><a class="reference internal" href="#estimation-methods">Estimation methods</a></li>
+<li><a class="reference internal" href="#classes-implementing-the-estimation-methods">Classes implementing the estimation methods</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_kde.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kde</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mod_kernels.html"
+                        title="next chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kernels</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_kde_methods.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kernels.html" title="Module pyqt_fit.kernels"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mod_kde.html" title="Module pyqt_fit.kde"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

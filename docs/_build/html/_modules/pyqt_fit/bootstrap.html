@@ -1,0 +1,511 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyqt_fit.bootstrap &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyqt_fit.bootstrap</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">:Author: Pierre Barbier de Reuille &lt;pierre.barbierdereuille@gmail.com&gt;</span>
+
+<span class="sd">This modules provides function for bootstrapping a regression method.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy.random</span> <span class="kn">import</span> <span class="n">randint</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">optimize</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">kernel_smoothing</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">sharedmem</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span> <span class="kn">as</span> <span class="nn">mp</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">bootstrap_workers</span>
+<span class="kn">from</span> <span class="nn">.compat</span> <span class="kn">import</span> <span class="n">irange</span><span class="p">,</span> <span class="n">izip</span>
+
+
+<span class="k">def</span> <span class="nf">adapt_curve_fit</span><span class="p">(</span><span class="n">fct</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwrds</span><span class="p">):</span>
+    <span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">optimize</span><span class="o">.</span><span class="n">curve_fit</span><span class="p">(</span><span class="n">fct</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">kwrds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span><span class="p">,</span> <span class="n">fct</span><span class="p">(</span><span class="n">popt</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">percentile</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the percentiles of the values in array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">array</span><span class="p">)</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> <span class="o">/</span> <span class="mi">100</span>
+    <span class="n">n0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">n1</span> <span class="o">=</span> <span class="n">n0</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="c">#print(&quot;%g percentile on %d = [%d-%d]&quot; % (p*100, len(array), n0, n1))</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">n0</span>
+    <span class="n">v0</span> <span class="o">=</span> <span class="n">array</span><span class="p">[</span><span class="n">n0</span><span class="p">]</span>
+    <span class="n">v1</span> <span class="o">=</span> <span class="n">array</span><span class="p">[</span><span class="n">n1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">v0</span> <span class="o">+</span> <span class="n">d</span> <span class="o">*</span> <span class="p">(</span><span class="n">v1</span> <span class="o">-</span> <span class="n">v0</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="bootstrap_residuals"><a class="viewcode-back" href="../../mod_bootstrap.html#pyqt_fit.bootstrap.bootstrap_residuals">[docs]</a><span class="k">def</span> <span class="nf">bootstrap_residuals</span><span class="p">(</span><span class="n">fct</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="n">repeats</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">residuals</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">add_residual</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">correct_bias</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwrds</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This implements the residual bootstrapping method for non-linear</span>
+<span class="sd">    regression.</span>
+
+<span class="sd">    :type  fct: callable</span>
+<span class="sd">    :param fct: Function evaluating the function on xdata at least with</span>
+<span class="sd">        ``fct(xdata)``</span>
+
+<span class="sd">    :type  xdata: ndarray of shape (N,) or (k,N) for function with k predictors</span>
+<span class="sd">    :param xdata: The independent variable where the data is measured</span>
+
+<span class="sd">    :type  ydata: ndarray</span>
+<span class="sd">    :param ydata: The dependant data</span>
+
+<span class="sd">    :type  residuals: ndarray or callable or None</span>
+<span class="sd">    :param residuals: Residuals for the estimation on each xdata. If callable,</span>
+<span class="sd">        the call will be ``residuals(ydata, yopt)``.</span>
+
+<span class="sd">    :type  repeats: int</span>
+<span class="sd">    :param repeats: Number of repeats for the bootstrapping</span>
+
+<span class="sd">    :type  add_residual: callable or None</span>
+<span class="sd">    :param add_residual: Function that add a residual to a value. The call</span>
+<span class="sd">        ``add_residual(ydata, residual)`` should return the new ydata, with</span>
+<span class="sd">        the residuals &#39;applied&#39;. If None, it is considered the residuals should</span>
+<span class="sd">        simply be added.</span>
+
+<span class="sd">    :type  correct_bias: boolean</span>
+<span class="sd">    :param correct_bias: If true, the additive bias of the residuals is</span>
+<span class="sd">        computed and restored</span>
+
+<span class="sd">    :type  kwrds: dict</span>
+<span class="sd">    :param kwrds: Dictionnary present to absorbed unknown named parameters</span>
+
+<span class="sd">    :rtype: (ndarray, ndarray)</span>
+<span class="sd">    :returns:</span>
+
+<span class="sd">        1. xdata, with a new axis at position -2. This correspond to the</span>
+<span class="sd">        &#39;shuffled&#39; xdata (as they are *not* shuffled here)</span>
+
+<span class="sd">        2.Second item is the shuffled ydata. There is a line per repeat, each</span>
+<span class="sd">        line is shuffled independently.</span>
+
+<span class="sd">    .. todo::</span>
+
+<span class="sd">        explain the method here, as well as how to create add_residual</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">residuals</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">subtract</span>
+
+    <span class="n">yopt</span> <span class="o">=</span> <span class="n">fct</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">residuals</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">residuals</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">yopt</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">residuals</span><span class="p">)</span>
+
+    <span class="n">res</span> <span class="o">-=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+    <span class="n">shuffle</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ydata</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">repeats</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ydata</span><span class="p">)))</span>
+
+    <span class="n">shuffled_res</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="n">shuffle</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">correct_bias</span><span class="p">:</span>
+        <span class="n">kde</span> <span class="o">=</span> <span class="n">kernel_smoothing</span><span class="o">.</span><span class="n">LocalLinearKernel1D</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">bias</span> <span class="o">=</span> <span class="n">kde</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+        <span class="n">shuffled_res</span> <span class="o">+=</span> <span class="n">bias</span>
+
+    <span class="k">if</span> <span class="n">add_residual</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">add_residual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">add</span>
+
+    <span class="n">modified_ydata</span> <span class="o">=</span> <span class="n">add_residual</span><span class="p">(</span><span class="n">yopt</span><span class="p">,</span> <span class="n">shuffled_res</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">xdata</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="n">modified_ydata</span>
+
+</div>
+<div class="viewcode-block" id="bootstrap_regression"><a class="viewcode-back" href="../../mod_bootstrap.html#pyqt_fit.bootstrap.bootstrap_regression">[docs]</a><span class="k">def</span> <span class="nf">bootstrap_regression</span><span class="p">(</span><span class="n">fct</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="n">repeats</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="o">**</span><span class="n">kwrds</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This implements the shuffling of standard bootstrapping method for</span>
+<span class="sd">    non-linear regression.</span>
+
+<span class="sd">    :type  fct: callable</span>
+<span class="sd">    :param fct: This is the function to optimize</span>
+
+<span class="sd">    :type  xdata: ndarray of shape (N,) or (k,N) for function with k predictors</span>
+<span class="sd">    :param xdata: The independent variable where the data is measured</span>
+
+<span class="sd">    :type  ydata: ndarray</span>
+<span class="sd">    :param ydata: The dependant data</span>
+
+<span class="sd">    :type  repeats: int</span>
+<span class="sd">    :param repeats: Number of repeats for the bootstrapping</span>
+
+<span class="sd">    :type  kwrds: dict</span>
+<span class="sd">    :param kwrds: Dictionnary to absorbed unknown named parameters</span>
+
+<span class="sd">    :rtype: (ndarray, ndarray)</span>
+<span class="sd">    :returns:</span>
+<span class="sd">        1. The shuffled x data. The axis -2 has one element per repeat, the</span>
+<span class="sd">        other axis are shuffled independently.</span>
+
+<span class="sd">        2. The shuffled ydata. There is a line per repeat, each line is</span>
+<span class="sd">        shuffled independently.</span>
+
+<span class="sd">    .. todo::</span>
+
+<span class="sd">        explain the method here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shuffle</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ydata</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">repeats</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ydata</span><span class="p">)))</span>
+    <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">xdata</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">shuffle</span><span class="p">]</span>
+    <span class="n">shuffled_y</span> <span class="o">=</span> <span class="n">ydata</span><span class="p">[</span><span class="n">shuffle</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">shuffled_x</span><span class="p">,</span> <span class="n">shuffled_y</span>
+
+</div>
+<span class="k">def</span> <span class="nf">getCIs</span><span class="p">(</span><span class="n">CI</span><span class="p">,</span> <span class="o">*</span><span class="n">arrays</span><span class="p">):</span>
+    <span class="c">#sorted_arrays = [ np.sort(a, axis=0) for a in arrays ]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">iterable</span><span class="p">(</span><span class="n">CI</span><span class="p">):</span>
+        <span class="n">CI</span> <span class="o">=</span> <span class="p">(</span><span class="n">CI</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="nf">make_CI</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">CI</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">CIs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">make_CI</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">CI</span><span class="p">):</span>
+        <span class="n">ci</span> <span class="o">=</span> <span class="p">(</span><span class="mf">100.</span> <span class="o">-</span> <span class="n">ci</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">cis</span><span class="p">,</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">izip</span><span class="p">(</span><span class="n">CIs</span><span class="p">,</span> <span class="n">arrays</span><span class="p">):</span>
+            <span class="n">low</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">ci</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">high</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="mi">100</span> <span class="o">-</span> <span class="n">ci</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">cis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">CIs</span>
+
+<span class="n">BootstrapResult</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s">&#39;BootstrapResult&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;&#39;y_fit y_est y_eval CIs</span>
+<span class="s">shuffled_xs shuffled_ys full_results&#39;&#39;&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="bootstrap"><a class="viewcode-back" href="../../mod_bootstrap.html#pyqt_fit.bootstrap.bootstrap">[docs]</a><span class="k">def</span> <span class="nf">bootstrap</span><span class="p">(</span><span class="n">fit</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="n">CI</span><span class="p">,</span> <span class="n">shuffle_method</span><span class="o">=</span><span class="n">bootstrap_residuals</span><span class="p">,</span>
+              <span class="n">shuffle_args</span><span class="o">=</span><span class="p">(),</span> <span class="n">shuffle_kwrds</span><span class="o">=</span><span class="p">{},</span> <span class="n">repeats</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span>
+              <span class="n">eval_points</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">full_results</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">nb_workers</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+              <span class="n">extra_attrs</span><span class="o">=</span><span class="p">(),</span> <span class="n">fit_args</span><span class="o">=</span><span class="p">(),</span> <span class="n">fit_kwrds</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function implement the bootstrap algorithm for a regression algorithm.</span>
+<span class="sd">    It is capable of spreading the load across many threads using shared memory</span>
+<span class="sd">    and the :py:mod:`multiprocess` module.</span>
+
+<span class="sd">    :type  fit: callable</span>
+<span class="sd">    :param fit:</span>
+<span class="sd">        Method used to compute regression. The call is::</span>
+
+<span class="sd">            f = fit(xdata, ydata, *fit_args, **fit_kwrds)</span>
+
+<span class="sd">        Fit should return an object that would evaluate the regression on a</span>
+<span class="sd">        set of points. The next call will be::</span>
+
+<span class="sd">            f(eval_points)</span>
+
+<span class="sd">    :type  xdata: ndarray of shape (N,) or (k,N) for function with k predictors</span>
+<span class="sd">    :param xdata: The independent variable where the data is measured</span>
+
+<span class="sd">    :type  ydata: ndarray</span>
+<span class="sd">    :param ydata: The dependant data</span>
+
+<span class="sd">    :type  CI: tuple of float</span>
+<span class="sd">    :param CI: List of percentiles to extract</span>
+
+<span class="sd">    :type  shuffle_method: callable</span>
+<span class="sd">    :param shuffle_method:</span>
+<span class="sd">        Create shuffled dataset. The call is::</span>
+
+<span class="sd">          shuffle_method(xdata, ydata, y_est, repeat=repeats, *shuffle_args,</span>
+<span class="sd">                         **shuffle_kwrds)</span>
+
+<span class="sd">        where ``y_est`` is the estimated dependant variable on the xdata.</span>
+
+<span class="sd">    :type  shuffle_args: tuple</span>
+<span class="sd">    :param shuffle_args: List of arguments for the shuffle method</span>
+
+<span class="sd">    :type  shuffle_kwrds: dict</span>
+<span class="sd">    :param shuffle_kwrds: Dictionnary of arguments for the shuffle method</span>
+
+<span class="sd">    :type  repeats: int</span>
+<span class="sd">    :param repeats: Number of repeats for the bootstraping</span>
+
+<span class="sd">    :type  eval_points: ndarray or None</span>
+<span class="sd">    :param eval_points: List of points to evaluate. If None, eval_point</span>
+<span class="sd">        is xdata.</span>
+
+<span class="sd">    :type  full_results: bool</span>
+<span class="sd">    :param full_results: if True, output also the whole set of evaluations</span>
+
+<span class="sd">    :type  nb_workers: int or None</span>
+<span class="sd">    :param nb_worders: Number of worker threads. If None, the number of</span>
+<span class="sd">        detected CPUs will be used. And if 1 or less, a single thread</span>
+<span class="sd">        will be used.</span>
+
+<span class="sd">    :type  extra_attrs: tuple of str</span>
+<span class="sd">    :param extra_attrs: List of attributes of the fitting method to extract on</span>
+<span class="sd">        top of the y values for confidence intervals</span>
+
+<span class="sd">    :type  fit_args: tuple</span>
+<span class="sd">    :param fit_args: List of extra arguments for the fit callable</span>
+
+<span class="sd">    :type  fit_kwrds: dict</span>
+<span class="sd">    :param fit_kwrds: Dictionnary of extra named arguments for the fit callable</span>
+
+<span class="sd">    :rtype: :py:class:`BootstrapResult`</span>
+<span class="sd">    :return: Estimated y on the data, on the evaluation points, the requested</span>
+<span class="sd">        confidence intervals and, if requested, the shuffled X, Y and the full</span>
+<span class="sd">        estimated distributions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">y_fit</span> <span class="o">=</span> <span class="n">fit</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="o">*</span><span class="n">fit_args</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_kwrds</span><span class="p">)</span>
+    <span class="n">y_fit</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+
+    <span class="n">shuffled_x</span><span class="p">,</span> <span class="n">shuffled_y</span> <span class="o">=</span> <span class="n">shuffle_method</span><span class="p">(</span><span class="n">y_fit</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span>
+                                            <span class="n">repeats</span><span class="o">=</span><span class="n">repeats</span><span class="p">,</span>
+                                            <span class="o">*</span><span class="n">shuffle_args</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_kwrds</span><span class="p">)</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="n">shuffled_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">extra_values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">extra_attrs</span><span class="p">:</span>
+        <span class="n">extra_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">y_fit</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">eval_points</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">eval_points</span> <span class="o">=</span> <span class="n">xdata</span>
+    <span class="k">if</span> <span class="n">nb_workers</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">nb_workers</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+
+    <span class="n">multiprocess</span> <span class="o">=</span> <span class="n">nb_workers</span> <span class="o">&gt;</span> <span class="mi">1</span>
+
+<span class="c"># Copy everything in shared mem</span>
+    <span class="k">if</span> <span class="n">multiprocess</span><span class="p">:</span>
+        <span class="n">ra</span> <span class="o">=</span> <span class="n">sharedmem</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">repeats</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">eval_points</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">result_array</span> <span class="o">=</span> <span class="n">ra</span><span class="o">.</span><span class="n">np</span>
+        <span class="n">sx</span> <span class="o">=</span> <span class="n">sharedmem</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shuffled_x</span><span class="p">)</span>
+        <span class="n">sy</span> <span class="o">=</span> <span class="n">sharedmem</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shuffled_y</span><span class="p">)</span>
+        <span class="n">ep</span> <span class="o">=</span> <span class="n">sharedmem</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eval_points</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">make_ea</span><span class="p">(</span><span class="n">ev</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">sharedmem</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">repeats</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ev</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">eas</span> <span class="o">=</span> <span class="p">[</span><span class="n">make_ea</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span> <span class="k">for</span> <span class="n">ev</span> <span class="ow">in</span> <span class="n">extra_values</span><span class="p">]</span>
+        <span class="n">extra_arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">ea</span><span class="o">.</span><span class="n">np</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">eas</span><span class="p">]</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">mp</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">(),</span> <span class="n">bootstrap_workers</span><span class="o">.</span><span class="n">initialize_shared</span><span class="p">,</span>
+                       <span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">ra</span><span class="p">,</span> <span class="n">eas</span><span class="p">,</span> <span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">,</span> <span class="n">ep</span><span class="p">,</span> <span class="n">extra_attrs</span><span class="p">,</span>
+                        <span class="n">fit</span><span class="p">,</span> <span class="n">fit_args</span><span class="p">,</span> <span class="n">fit_kwrds</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">repeats</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">eval_points</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">make_ea</span><span class="p">(</span><span class="n">ev</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">repeats</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ev</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">extra_arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">make_ea</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span> <span class="k">for</span> <span class="n">ev</span> <span class="ow">in</span> <span class="n">extra_values</span><span class="p">]</span>
+        <span class="n">bootstrap_workers</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">result_array</span><span class="p">,</span> <span class="n">extra_arrays</span><span class="p">,</span>
+                                     <span class="n">shuffled_x</span><span class="p">,</span> <span class="n">shuffled_y</span><span class="p">,</span> <span class="n">eval_points</span><span class="p">,</span>
+                                     <span class="n">extra_attrs</span><span class="p">,</span> <span class="n">fit</span><span class="p">,</span> <span class="n">fit_args</span><span class="p">,</span> <span class="n">fit_kwrds</span><span class="p">)</span>
+
+    <span class="n">result_array</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_fit</span><span class="p">(</span><span class="n">eval_points</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">ea</span><span class="p">,</span> <span class="n">ev</span> <span class="ow">in</span> <span class="n">izip</span><span class="p">(</span><span class="n">extra_arrays</span><span class="p">,</span> <span class="n">extra_values</span><span class="p">):</span>
+        <span class="n">ea</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ev</span>
+
+    <span class="n">base_repeat</span> <span class="o">=</span> <span class="n">repeats</span> <span class="o">//</span> <span class="n">nb_workers</span>
+    <span class="k">if</span> <span class="n">base_repeat</span> <span class="o">*</span> <span class="n">nb_workers</span> <span class="o">&lt;</span> <span class="n">repeats</span><span class="p">:</span>
+        <span class="n">base_repeat</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">nb_workers</span><span class="p">):</span>
+        <span class="n">end_repeats</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">base_repeat</span>
+        <span class="k">if</span> <span class="n">end_repeats</span> <span class="o">&gt;</span> <span class="n">repeats</span><span class="p">:</span>
+            <span class="n">end_repeats</span> <span class="o">=</span> <span class="n">repeats</span>
+        <span class="k">if</span> <span class="n">multiprocess</span><span class="p">:</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">bootstrap_workers</span><span class="o">.</span><span class="n">bootstrap_result</span><span class="p">,</span>
+                             <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">*</span> <span class="n">base_repeat</span><span class="p">,</span> <span class="n">end_repeats</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bootstrap_workers</span><span class="o">.</span><span class="n">bootstrap_result</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">*</span> <span class="n">base_repeat</span><span class="p">,</span> <span class="n">end_repeats</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">multiprocess</span><span class="p">:</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="n">CIs</span> <span class="o">=</span> <span class="n">getCIs</span><span class="p">(</span><span class="n">CI</span><span class="p">,</span> <span class="n">result_array</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_arrays</span><span class="p">)</span>
+
+    <span class="c"># copy the array to not return a view on a larger array</span>
+    <span class="n">y_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">result_array</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">full_results</span><span class="p">:</span>
+        <span class="n">shuffled_y</span> <span class="o">=</span> <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">result_array</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">extra_arrays</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="k">elif</span> <span class="n">multiprocess</span><span class="p">:</span>
+        <span class="n">result_array</span> <span class="o">=</span> <span class="n">result_array</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c"># copy in local memory</span>
+        <span class="n">extra_arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">ea</span><span class="o">.</span><span class="n">copy</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">extra_arrays</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">BootstrapResult</span><span class="p">(</span><span class="n">y_fit</span><span class="p">,</span> <span class="n">y_fit</span><span class="p">(</span><span class="n">xdata</span><span class="p">),</span> <span class="n">y_eval</span><span class="p">,</span> <span class="n">CIs</span><span class="p">,</span>
+                           <span class="n">shuffled_x</span><span class="p">,</span> <span class="n">shuffled_y</span><span class="p">,</span> <span class="n">result_array</span><span class="p">)</span>
+
+</div>
+<span class="k">def</span> <span class="nf">test</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">quad</span>
+    <span class="kn">from</span> <span class="nn">numpy.random</span> <span class="kn">import</span> <span class="n">rand</span><span class="p">,</span> <span class="n">randn</span>
+    <span class="kn">from</span> <span class="nn">pylab</span> <span class="kn">import</span> <span class="n">plot</span><span class="p">,</span> <span class="n">clf</span><span class="p">,</span> <span class="n">legend</span><span class="p">,</span> <span class="n">arange</span><span class="p">,</span> <span class="n">figure</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">show</span>
+    <span class="kn">from</span> <span class="nn">curve_fitting</span> <span class="kn">import</span> <span class="n">curve_fit</span>
+
+    <span class="k">def</span> <span class="nf">quadratic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="k">return</span> <span class="n">p0</span> <span class="o">+</span> <span class="n">p1</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">p2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="c">#test = quadratic</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="n">quad</span><span class="o">.</span><span class="n">quadratic</span>
+
+    <span class="n">init</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">])</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Target parameters: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">rand</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span> <span class="o">-</span> <span class="mi">3</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">randn</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">xr</span> <span class="o">=</span> <span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+    <span class="n">yr</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Estimage best parameters, fixing the first one&quot;</span><span class="p">)</span>
+    <span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">init</span><span class="p">,</span> <span class="n">fix_params</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,))</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Best parameters: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">popt</span><span class="p">))</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Estimate best parameters from data&quot;</span><span class="p">)</span>
+    <span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">init</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Best parameters: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">popt</span><span class="p">))</span>
+
+    <span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">clf</span><span class="p">()</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="s">&#39;+&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;data&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">yr</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;function&#39;</span><span class="p">)</span>
+    <span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;upper left&#39;</span><span class="p">)</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Residual bootstrap calculation&quot;</span><span class="p">)</span>
+    <span class="n">result_r</span> <span class="o">=</span> <span class="n">bootstrap</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">init</span><span class="p">,</span> <span class="p">(</span><span class="mi">95</span><span class="p">,</span> <span class="mi">99</span><span class="p">),</span>
+                         <span class="n">shuffle_method</span><span class="o">=</span><span class="n">bootstrap_residuals</span><span class="p">,</span> <span class="n">eval_points</span><span class="o">=</span><span class="n">xr</span><span class="p">,</span>
+                         <span class="n">fit</span><span class="o">=</span><span class="n">curve_fit</span><span class="p">)</span>
+    <span class="n">popt_r</span><span class="p">,</span> <span class="n">pcov_r</span><span class="p">,</span> <span class="n">res_r</span><span class="p">,</span> <span class="n">CI_r</span><span class="p">,</span> <span class="n">CIp_r</span><span class="p">,</span> <span class="n">extra_r</span> <span class="o">=</span> <span class="n">result_r</span>
+    <span class="n">yopt_r</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">popt_r</span><span class="p">)</span>
+
+    <span class="n">figure</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">clf</span><span class="p">()</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">yopt_r</span><span class="p">,</span> <span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;estimate&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">yr</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;target&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_r</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;b--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;95% CI&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_r</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="s">&#39;b--&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_r</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;k--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;99% CI&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_r</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="s">&#39;k--&#39;</span><span class="p">)</span>
+    <span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;upper left&#39;</span><span class="p">)</span>
+    <span class="n">title</span><span class="p">(</span><span class="s">&#39;Residual Bootstrapping&#39;</span><span class="p">)</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Regression bootstrap calculation&quot;</span><span class="p">)</span>
+    <span class="p">(</span><span class="n">popt_c</span><span class="p">,</span> <span class="n">pcov_c</span><span class="p">,</span> <span class="n">res_c</span><span class="p">,</span> <span class="n">CI_c</span><span class="p">,</span> <span class="n">CIp_r</span><span class="p">,</span>
+     <span class="n">extra_c</span><span class="p">)</span> <span class="o">=</span> <span class="n">bootstrap</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">init</span><span class="p">,</span> <span class="n">CI</span><span class="o">=</span><span class="p">(</span><span class="mi">95</span><span class="p">,</span> <span class="mi">99</span><span class="p">),</span>
+                          <span class="n">shuffle_method</span><span class="o">=</span><span class="n">bootstrap_regression</span><span class="p">,</span> <span class="n">eval_points</span><span class="o">=</span><span class="n">xr</span><span class="p">,</span>
+                          <span class="n">fit</span><span class="o">=</span><span class="n">curve_fit</span><span class="p">)</span>
+    <span class="n">yopt_c</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">popt_c</span><span class="p">)</span>
+
+    <span class="n">figure</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">clf</span><span class="p">()</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">yopt_c</span><span class="p">,</span> <span class="s">&#39;g&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;estimate&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">yr</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;target&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;b--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;95% CI&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="s">&#39;b--&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_c</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;k--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;99% CI&#39;</span><span class="p">)</span>
+    <span class="n">plot</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">CI_c</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="s">&#39;k--&#39;</span><span class="p">)</span>
+    <span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&#39;upper left&#39;</span><span class="p">)</span>
+    <span class="n">title</span><span class="p">(</span><span class="s">&#39;Regression Bootstrapping (also called Case Resampling)&#39;</span><span class="p">)</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Done&quot;</span><span class="p">)</span>
+
+    <span class="n">show</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="nb">locals</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">profile</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s">&#39;bootstrap_profile&#39;</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">cProfile</span>
+    <span class="kn">import</span> <span class="nn">pstats</span>
+    <span class="n">cProfile</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s">&#39;res = bootstrap.test()&#39;</span><span class="p">,</span> <span class="s">&#39;bootstrap_profile&#39;</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">pstats</span><span class="o">.</span><span class="n">Stats</span><span class="p">(</span><span class="s">&#39;bootstrap_profile&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">p</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">test</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

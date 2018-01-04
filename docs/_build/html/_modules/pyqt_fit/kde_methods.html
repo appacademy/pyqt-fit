@@ -1,0 +1,1268 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyqt_fit.kde_methods &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyqt_fit.kde_methods</h1><div class="highlight"><pre>
+<span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">:Author: Pierre Barbier de Reuille &lt;pierre.barbierdereuille@gmail.com&gt;</span>
+
+<span class="sd">This module contains a set of methods to compute univariate KDEs. See the </span>
+<span class="sd">objects in the :py:mod:`pyqt_fit.kde` module for more details on these methods.</span>
+
+<span class="sd">These methods provide various variations on :math:`\hat{K}(x;X,h,L,U)`, the </span>
+<span class="sd">modified kernel evaluated on the point :math:`x` based on the estimation points </span>
+<span class="sd">:math:`X`, a bandwidth :math:`h` and on the domain :math:`[L,U]`.</span>
+
+<span class="sd">The definitions of the methods rely on the following definitions:</span>
+
+<span class="sd">.. math::</span>
+
+<span class="sd">   \begin{array}{rcl}</span>
+<span class="sd">     a_0(l,u) &amp;=&amp; \int_l^u K(z) dz\\</span>
+<span class="sd">     a_1(l,u) &amp;=&amp; \int_l^u zK(z) dz\\</span>
+<span class="sd">     a_2(l,u) &amp;=&amp; \int_l^u z^2K(z) dz</span>
+<span class="sd">   \end{array}</span>
+
+<span class="sd">These definitions correspond to:</span>
+
+<span class="sd">- :math:`a_0(l,u)` -- The partial cumulative distribution function</span>
+<span class="sd">- :math:`a_1(l,u)` -- The partial first moment of the distribution. In </span>
+<span class="sd">  particular, :math:`a_1(-\infty, \infty)` is the mean of the kernel (i.e. and </span>
+<span class="sd">  should be 0).</span>
+<span class="sd">- :math:`a_2(l,u)` -- The partial second moment of the distribution. In </span>
+<span class="sd">  particular, :math:`a_2(-\infty, \infty)` is the variance of the kernel (i.e. </span>
+<span class="sd">  which should be close to 1, unless using higher order kernel).</span>
+
+<span class="sd">References:</span>
+<span class="sd">```````````</span>
+<span class="sd">.. [1] Jones, M. C. 1993. Simple boundary correction for kernel density</span>
+<span class="sd">    estimation. Statistics and Computing 3: 135--146.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">fftpack</span><span class="p">,</span> <span class="n">integrate</span><span class="p">,</span> <span class="n">optimize</span>
+<span class="kn">from</span> <span class="nn">.compat</span> <span class="kn">import</span> <span class="n">irange</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">make_ufunc</span><span class="p">,</span> <span class="n">namedtuple</span><span class="p">,</span> <span class="n">numpy_trans_idx</span>
+
+<div class="viewcode-block" id="generate_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.generate_grid">[docs]</a><span class="k">def</span> <span class="nf">generate_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Helper method returning a regular grid on the domain of the KDE.</span>
+
+<span class="sd">    :param KDE1D kde: Object describing the KDE computation. The object must</span>
+<span class="sd">        have been fitted!</span>
+<span class="sd">    :param int N: Number of points in the grid</span>
+<span class="sd">    :param float cut: for unbounded domains, how far past the maximum should</span>
+<span class="sd">        the grid extend to, in term of KDE bandwidth</span>
+
+<span class="sd">    :return: A vector of N regularly spaced points</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">10</span>
+    <span class="k">if</span> <span class="n">cut</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">cut</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">cut</span>
+    <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">==</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span> <span class="o">-</span> <span class="n">cut</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+    <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span> <span class="o">+</span> <span class="n">cut</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="compute_bandwidth"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.compute_bandwidth">[docs]</a><span class="k">def</span> <span class="nf">compute_bandwidth</span><span class="p">(</span><span class="n">kde</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the bandwidth and covariance for the model, based of its xdata attribute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth_function</span><span class="p">:</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">bandwidth_function</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">kde</span><span class="p">))</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">bw</span> <span class="o">*</span> <span class="n">bw</span>
+    <span class="k">elif</span> <span class="n">kde</span><span class="o">.</span><span class="n">covariance_function</span><span class="p">:</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">covariance_function</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">kde</span><span class="p">))</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">covariance</span>
+    <span class="k">return</span> <span class="n">bw</span><span class="p">,</span> <span class="n">cov</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod">[docs]</a><span class="k">class</span> <span class="nc">KDE1DMethod</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class providing a default grid method and a default method for </span>
+<span class="sd">    unbounded evaluation of the PDF and CDF. It also provides default methods </span>
+<span class="sd">    for the other metrics, based on PDF and CDF calculations.</span>
+
+<span class="sd">    :Note:</span>
+<span class="sd">        - It is expected that all grid methods will return the same grid if </span>
+<span class="sd">          used with the same arguments.</span>
+<span class="sd">        - It is fair to assume all array-like arguments will be at least 1D </span>
+<span class="sd">          arrays.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;unbounded&#39;</span>
+
+<div class="viewcode-block" id="KDE1DMethod.pdf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.pdf">[docs]</a>    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the PDF of the estimated distribution.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the distribution on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the PDF.</span>
+<span class="sd">        :Default: Direct implementation of the formula for unbounded pdf</span>
+<span class="sd">            computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.fit"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method called by the KDE1D object right after fitting to allow for </span>
+<span class="sd">        one-time calculation.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object being fitted</span>
+<span class="sd">        :Default: Compute the bandwidth and covariance if specified as functions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kde</span><span class="o">.</span><span class="n">compute_bandwidth</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.__call__"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.__call__">[docs]</a>    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Call the :py:meth:`pdf` method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.cdf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.cdf">[docs]</a>    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the CDF of the estimated distribution, defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            cdf(x) = P(X \leq x) = \int_l^x p(t) dt</span>
+
+<span class="sd">        where :math:`l` is the lower bound of the distribution domain and </span>
+<span class="sd">        :math:`p` the density of probability</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the CDF on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the CDF.</span>
+<span class="sd">        :Default: Direct implementation of the formula for unbounded CDF</span>
+<span class="sd">            computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span>
+
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.icdf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.icdf">[docs]</a>    <span class="k">def</span> <span class="nf">icdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the inverse cumulative distribution (quantile) function, </span>
+<span class="sd">        defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            icdf(p) = \inf\left\{x\in\mathbb{R} : cdf(x) \geq p\right\}</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the iCDF on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the iCDF.</span>
+<span class="sd">        :Default: First approximate the result using linear interpolation on</span>
+<span class="sd">            the CDF and refine the result numerically using the Newton method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">)</span>
+        <span class="n">coarse_result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf</span>
+        <span class="n">pdf_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">lower</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="n">upper</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">pdf_out</span><span class="p">)</span>
+
+        <span class="nd">@make_ufunc</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">find_inverse</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">approx</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="o">-</span><span class="mf">1e-10</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">upper</span>
+            <span class="k">if</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">lower</span>
+            <span class="k">if</span> <span class="n">approx</span> <span class="o">&gt;=</span> <span class="n">xs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="n">approx</span> <span class="o">&lt;=</span> <span class="n">xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">approx</span>
+            <span class="n">cdf_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">lower</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="o">-</span><span class="n">p</span>
+                <span class="k">elif</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="n">upper</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mi">1</span><span class="o">-</span><span class="n">p</span>
+                <span class="k">return</span> <span class="n">cdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">cdf_out</span><span class="p">)</span> <span class="o">-</span> <span class="n">p</span>
+            <span class="k">return</span> <span class="n">optimize</span><span class="o">.</span><span class="n">newton</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">approx</span><span class="p">,</span> <span class="n">fprime</span><span class="o">=</span><span class="n">pdf</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">find_inverse</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">coarse_result</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.sf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.sf">[docs]</a>    <span class="k">def</span> <span class="nf">sf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the survival function, defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            sf(x) = P(X \geq x) = \int_x^u p(t) dt = 1 - cdf(x)</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the survival function on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the survival function.</span>
+<span class="sd">        :Default: Compute explicitly :math:`1 - cdf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.isf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.isf">[docs]</a>    <span class="k">def</span> <span class="nf">isf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the inverse survival function, defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            isf(p) = \sup\left\{x\in\mathbb{R} : sf(x) \leq p\right\}</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the iSF on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the inverse survival function.</span>
+<span class="sd">        :Default: Compute :math:`icdf(1-p)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">icdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.hazard"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.hazard">[docs]</a>    <span class="k">def</span> <span class="nf">hazard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the hazard function evaluated on the points.</span>
+
+<span class="sd">        The hazard function is defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            h(x) = \frac{p(x)}{sf(x)}</span>
+
+<span class="sd">        where :math:`p(x)` is the probability density function and </span>
+<span class="sd">        :math:`sf(x)` is the survival function.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the hazard function on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the hazard function</span>
+<span class="sd">        :Default: Compute explicitly :math:`pdf(x) / sf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">sf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">sf</span><span class="p">)</span>
+        <span class="n">sf</span><span class="p">[</span><span class="n">sf</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c"># Some methods can produce negative sf</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">sf</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.cumhazard"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.cumhazard">[docs]</a>    <span class="k">def</span> <span class="nf">cumhazard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the cumulative hazard function evaluated on the points.</span>
+
+<span class="sd">        The hazard function is defined as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            ch(x) = \int_l^x h(t) dt = -\ln sf(x)</span>
+
+<span class="sd">        where :math:`l` is the lower bound of the domain, :math:`h` the hazard </span>
+<span class="sd">        function and :math:`sf` the survival function.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param ndarray points: Points to evaluate the cumulative hazard function on</span>
+<span class="sd">        :param ndarray out: Result object. If must have the same shapes as ``points``</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: Returns the ``out`` variable, updated with the cumulative hazard function</span>
+<span class="sd">        :Default: Compute explicitly :math:`-\ln sf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">out</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c"># Some methods can produce negative sf</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.grid">[docs]</a>    <span class="k">def</span> <span class="nf">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the PDF of the distribution on a regular grid with at least </span>
+<span class="sd">        ``N`` elements.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the PDF has been estimated on, and the</span>
+<span class="sd">            estimations.</span>
+<span class="sd">        :Default: Evaluate :math:`pdf(x)` on a grid generated using</span>
+<span class="sd">            :py:func:`generate_grid`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">generate_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">g</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.cdf_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.cdf_grid">[docs]</a>    <span class="k">def</span> <span class="nf">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the CDF of the distribution on a regular grid with at least </span>
+<span class="sd">        ``N`` elements.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the CDF has been estimated on, and the</span>
+<span class="sd">            estimations.</span>
+<span class="sd">        :Default: Evaluate :math:`cdf(x)` on a grid generated using</span>
+<span class="sd">            :py:func:`generate_grid`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">generate_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">g</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.icdf_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.icdf_grid">[docs]</a>    <span class="k">def</span> <span class="nf">icdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the inverse cumulative distribution (quantile) function on </span>
+<span class="sd">        a grid.</span>
+
+<span class="sd">        :Note: The default implementation is not as good an approximation as</span>
+<span class="sd">            the plain icdf default method.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the CDF has been estimated on, and the</span>
+<span class="sd">            estimations.</span>
+<span class="sd">        :Default: Linear interpolation of the inverse CDF on a grid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">icdf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">icdf</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.sf_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.sf_grid">[docs]</a>    <span class="k">def</span> <span class="nf">sf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the survival function on a grid.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the survival function has been</span>
+<span class="sd">            estimated on, and the estimations.</span>
+<span class="sd">        :Default: Compute explicitly :math:`1 - cdf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">points</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.isf_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.isf_grid">[docs]</a>    <span class="k">def</span> <span class="nf">isf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the inverse survival function on a grid.</span>
+
+<span class="sd">        :Note: The default implementation is not as good an approximation as</span>
+<span class="sd">            the plain isf default method.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the CDF has been estimated on, and the</span>
+<span class="sd">            estimations.</span>
+<span class="sd">        :Default: Linear interpolation of the inverse survival function on a grid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">isf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">ys</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">xs</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">isf</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.hazard_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.hazard_grid">[docs]</a>    <span class="k">def</span> <span class="nf">hazard_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the hazard function on a grid.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the hazard function has been</span>
+<span class="sd">            estimated on, and the estimations.</span>
+<span class="sd">        :Default: Compute explicitly :math:`pdf(x) / sf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">points</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">sf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">sf</span><span class="p">[</span><span class="n">sf</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c"># Some methods can produce negative sf</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">sf</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.cumhazard_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.cumhazard_grid">[docs]</a>    <span class="k">def</span> <span class="nf">cumhazard_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Compute the hazard function on a grid.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object</span>
+<span class="sd">        :param int N: minimum number of element in the returned grid. Most</span>
+<span class="sd">            methods will want to round it to the next power of 2.</span>
+<span class="sd">        :param float cut: for unbounded domains, how far from the last data</span>
+<span class="sd">            point should the grid go, as a fraction of the bandwidth.</span>
+<span class="sd">        :rtype: (ndarray, ndarray)</span>
+<span class="sd">        :returns: The array of positions the hazard function has been</span>
+<span class="sd">            estimated on, and the estimations.</span>
+<span class="sd">        :Default: Compute explicitly :math:`-\ln sf(x)`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">points</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">out</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c"># Some methods can produce negative sf</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span>
+</div>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the name of the method</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+<div class="viewcode-block" id="KDE1DMethod.numeric_cdf"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf">[docs]</a>    <span class="k">def</span> <span class="nf">numeric_cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Provide a numeric approximation of the CDF based on integrating the pdf </span>
+<span class="sd">        using :py:func:`scipy.integrate.quad`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">points</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="n">pts</span><span class="p">[</span><span class="n">pts</span> <span class="o">&lt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">]</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">pts</span><span class="p">[</span><span class="n">pts</span> <span class="o">&gt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">]</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">ix</span> <span class="o">=</span> <span class="n">pts</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+
+        <span class="n">sp</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+
+        <span class="n">pdf_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">]),</span> <span class="n">pdf_out</span><span class="p">)</span>
+
+        <span class="nd">@make_ufunc</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">comp_cdf</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+            <span class="n">low</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">sp</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">integrate</span><span class="o">.</span><span class="n">quad</span><span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">sp</span><span class="p">[</span><span class="n">i</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">comp_cdf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sp</span><span class="p">)),</span> <span class="n">out</span><span class="o">=</span><span class="n">parts</span><span class="p">)</span>
+
+        <span class="n">ints</span> <span class="o">=</span> <span class="n">parts</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
+
+        <span class="n">out</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">ix</span><span class="p">,</span> <span class="n">ints</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="KDE1DMethod.numeric_cdf_grid"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.KDE1DMethod.numeric_cdf_grid">[docs]</a>    <span class="k">def</span> <span class="nf">numeric_cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the CDF on a grid using a trivial, but fast, numeric </span>
+<span class="sd">        integration of the pdf.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pts</span><span class="p">,</span> <span class="n">pdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">integrate</span><span class="o">.</span><span class="n">cumtrapz</span><span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pts</span><span class="p">,</span> <span class="n">cdf</span>
+</div>
+    <span class="k">def</span> <span class="nf">grid_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">2</span><span class="o">**</span><span class="mi">10</span>
+        <span class="k">return</span> <span class="n">N</span>
+</div>
+<span class="n">unbounded</span> <span class="o">=</span> <span class="n">KDE1DMethod</span><span class="p">()</span>
+
+<div class="viewcode-block" id="RenormalizationMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.RenormalizationMethod">[docs]</a><span class="k">class</span> <span class="nc">RenormalizationMethod</span><span class="p">(</span><span class="n">KDE1DMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    This method consists in using the normal kernel method, but renormalize </span>
+<span class="sd">    to only take into account the part of the kernel within the domain of the </span>
+<span class="sd">    density [1]_.</span>
+
+<span class="sd">    The kernel is then replaced with:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \hat{K}(x;X,h,L,U) \triangleq \frac{1}{a_0(u,l)} K(z)</span>
+
+<span class="sd">    where:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        z = \frac{x-X}{h} \qquad l = \frac{L-x}{h} \qquad u = \frac{U-x}{h}</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;renormalization&#39;</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">l</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">a1</span> <span class="o">=</span> <span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="o">-</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="p">((</span><span class="n">kde</span><span class="o">.</span><span class="n">weights</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span> <span class="o">/</span> <span class="n">a1</span><span class="p">)</span>
+
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numeric_cdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">10</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">11</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numeric_cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+</div>
+<span class="n">renormalization</span> <span class="o">=</span> <span class="n">RenormalizationMethod</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ReflectionMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.ReflectionMethod">[docs]</a><span class="k">class</span> <span class="nc">ReflectionMethod</span><span class="p">(</span><span class="n">KDE1DMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    This method consist in simulating the reflection of the data left and </span>
+<span class="sd">    right of the boundaries. If one of the boundary is infinite, then the </span>
+<span class="sd">    data is not reflected in that direction. To this purpose, the kernel is </span>
+<span class="sd">    replaced with:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \hat{K}(x; X, h, L, U) \triangleq K(z)</span>
+<span class="sd">        + K\left(\frac{x+X-2L}{h}\right)</span>
+<span class="sd">        + K\left(\frac{x+X-2U}{h}\right)</span>
+
+<span class="sd">    where:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        z = \frac{x-X}{h}</span>
+
+
+<span class="sd">    See the :py:mod:`pyqt_fit.kde_methods` for a description of the various </span>
+<span class="sd">    symbols.</span>
+
+<span class="sd">    When computing grids, if the bandwidth is constant, the result is computing </span>
+<span class="sd">    using CDT.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;reflection&#39;</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="c"># Make sure points are between the bounds, with reflection if needed</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&lt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&gt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">):</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">points</span> <span class="o">-</span> <span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">+</span> <span class="n">span</span><span class="p">)</span>
+            <span class="n">points</span> <span class="o">%=</span> <span class="mi">2</span><span class="o">*</span><span class="n">span</span>
+            <span class="n">points</span> <span class="o">-=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">+</span> <span class="n">span</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">z1</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">+</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">L</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">L</span> <span class="o">/</span> <span class="n">bw</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">U</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">U</span> <span class="o">/</span> <span class="n">bw</span><span class="p">))</span>
+
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="c"># Make sure points are between the bounds, with reflection if needed</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&lt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&gt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">):</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">points</span> <span class="o">-</span> <span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">+</span> <span class="n">span</span><span class="p">)</span>
+            <span class="n">points</span> <span class="o">%=</span> <span class="mi">2</span><span class="o">*</span><span class="n">span</span>
+            <span class="n">points</span> <span class="o">-=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">+</span> <span class="n">span</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">z1</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">+</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">L</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">terms</span> <span class="o">-=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">L</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span> <span class="c"># Remove the truncated part on the left</span>
+            <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">L</span> <span class="o">/</span> <span class="n">bw</span><span class="p">))</span> <span class="c"># Add the reflected part</span>
+            <span class="n">terms</span> <span class="o">-=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">xdata</span> <span class="o">-</span> <span class="n">L</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span> <span class="c"># Remove the truncated part from the reflection</span>
+
+        <span class="k">if</span> <span class="n">U</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">U</span> <span class="o">/</span> <span class="n">bw</span><span class="p">))</span> <span class="c"># Add the reflected part</span>
+
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+
+    <span class="k">def</span> <span class="nf">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        DCT-based estimation of KDE estimation, i.e. with reflection boundary </span>
+<span class="sd">        conditions. This works only for fixed bandwidth (i.e. lambdas = 1) and </span>
+<span class="sd">        gaussian kernel.</span>
+
+<span class="sd">        For open domains, the grid is taken with 3 times the bandwidth as extra </span>
+<span class="sd">        space to remove the boundary problems.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cut</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">cut</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">cut</span>
+
+        <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">==</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-</span> <span class="n">cut</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">+</span> <span class="n">cut</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">R</span> <span class="o">=</span> <span class="n">upper</span> <span class="o">-</span> <span class="n">lower</span>
+
+        <span class="c"># Histogram the data to get a crude first approximation of the density</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">weights</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">DataHist</span><span class="p">,</span> <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">),</span>
+                                      <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+        <span class="n">DataHist</span> <span class="o">=</span> <span class="n">DataHist</span> <span class="o">/</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+        <span class="n">DCTData</span> <span class="o">=</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">dct</span><span class="p">(</span><span class="n">DataHist</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+
+        <span class="n">t_star</span> <span class="o">=</span> <span class="n">bw</span> <span class="o">/</span> <span class="n">R</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">t_star</span>
+        <span class="n">smth</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">dct</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+
+        <span class="c"># Smooth the DCTransformed data using t_star</span>
+        <span class="n">SmDCTData</span> <span class="o">=</span> <span class="n">DCTData</span> <span class="o">*</span> <span class="n">smth</span>
+        <span class="c"># Inverse DCT to get density</span>
+        <span class="n">density</span> <span class="o">=</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">idct</span><span class="p">(</span><span class="n">SmDCTData</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">R</span><span class="p">)</span>
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">bins</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">bins</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">N</span><span class="p">)])</span>
+
+        <span class="k">return</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">density</span>
+
+    <span class="k">def</span> <span class="nf">grid_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">2</span><span class="o">**</span><span class="mi">14</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">**</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">N</span><span class="p">)))</span>
+</div>
+<span class="n">reflection</span> <span class="o">=</span> <span class="n">ReflectionMethod</span><span class="p">()</span>
+
+<div class="viewcode-block" id="LinearCombinationMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.LinearCombinationMethod">[docs]</a><span class="k">class</span> <span class="nc">LinearCombinationMethod</span><span class="p">(</span><span class="n">KDE1DMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    This method uses the linear combination correction published in [1]_.</span>
+
+<span class="sd">    The estimation is done with a modified kernel given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \hat{K}(x;X,h,L,U) \triangleq \frac{a_2(l,u) - a_1(-u, -l) z}{a_2(l,u)a_0(l,u)</span>
+<span class="sd">        - a_1(-u,-l)^2} K(z)</span>
+
+<span class="sd">    where:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        z = \frac{x-X}{h} \qquad l = \frac{L-x}{h} \qquad u = \frac{U-x}{h}</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;linear combination&#39;</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">points</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">l</span> <span class="o">=</span> <span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">-</span> <span class="n">points</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">points</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">a0</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">-</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+        <span class="n">a1</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">pm1</span><span class="p">(</span><span class="o">-</span><span class="n">l</span><span class="p">)</span> <span class="o">-</span> <span class="n">kernel</span><span class="o">.</span><span class="n">pm1</span><span class="p">(</span><span class="o">-</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">a2</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">pm2</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">-</span> <span class="n">kernel</span><span class="o">.</span><span class="n">pm2</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+
+        <span class="n">denom</span> <span class="o">=</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">a0</span> <span class="o">-</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">a1</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">a2</span> <span class="o">-</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">z</span>
+
+        <span class="n">upper</span> <span class="o">/=</span> <span class="n">denom</span>
+        <span class="n">upper</span> <span class="o">*=</span> <span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">weights</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span> <span class="o">*</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="n">upper</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numeric_cdf</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">10</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">bounded</span> <span class="ow">or</span> <span class="n">N</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">11</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numeric_cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+</div>
+<span class="n">linear_combination</span> <span class="o">=</span> <span class="n">LinearCombinationMethod</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CyclicMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.CyclicMethod">[docs]</a><span class="k">class</span> <span class="nc">CyclicMethod</span><span class="p">(</span><span class="n">KDE1DMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    This method assumes cyclic boundary conditions and works only for closed </span>
+<span class="sd">    boundaries.</span>
+
+<span class="sd">    The estimation is done with a modified kernel given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \hat{K}(x; X, h, L, U) \triangleq K(z)</span>
+<span class="sd">        + K\left(z - \frac{U-L}{h}\right)</span>
+<span class="sd">        + K\left(z + \frac{U-L}{h}\right)</span>
+
+<span class="sd">    where:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        z = \frac{x-X}{h}</span>
+
+<span class="sd">    When computing grids, if the bandwidth is constant, the result is computing </span>
+<span class="sd">    using FFT.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;cyclic&#39;</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Cyclic boundary conditions can only be used with &quot;</span>
+                             <span class="s">&quot;closed domains.&quot;</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">points</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="c"># Make sure points are between the bounds</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&lt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&gt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">):</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">points</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">%=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">+=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">span</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">L</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="n">span</span><span class="p">)</span> <span class="c"># Add points to the left</span>
+        <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">span</span><span class="p">)</span> <span class="c"># Add points to the right</span>
+
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Cyclic boundary conditions can only be used with &quot;</span>
+                             <span class="s">&quot;closed domains.&quot;</span><span class="p">)</span>
+
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">points</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="c"># Make sure points are between the bounds</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&lt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">points</span> <span class="o">&gt;</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">):</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">points</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">%=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">points</span> <span class="o">+=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+
+        <span class="n">span</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">L</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span>
+
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">terms</span> <span class="o">-=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">L</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span> <span class="c"># Remove the parts left of the lower bound</span>
+
+        <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="n">span</span><span class="p">)</span> <span class="c"># Repeat on the left</span>
+        <span class="n">terms</span> <span class="o">-=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">L</span> <span class="o">-</span> <span class="n">xdata</span><span class="p">)</span> <span class="o">/</span> <span class="n">bw</span> <span class="o">+</span> <span class="n">span</span><span class="p">)</span> <span class="c"># Remove parts left of lower bounds</span>
+
+        <span class="n">terms</span> <span class="o">+=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">span</span><span class="p">)</span> <span class="c"># Repeat on the right</span>
+
+        <span class="n">terms</span> <span class="o">*=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        FFT-based estimation of KDE estimation, i.e. with cyclic boundary</span>
+<span class="sd">        conditions. This works only for closed domains, fixed bandwidth</span>
+<span class="sd">        (i.e. lambdas = 1) and gaussian kernel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Error, cyclic boundary conditions require &quot;</span>
+                             <span class="s">&quot;a closed domain.&quot;</span><span class="p">)</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">*</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">lower</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">upper</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">upper</span> <span class="o">-</span> <span class="n">lower</span>
+        <span class="n">dN</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">lower</span><span class="p">:</span><span class="n">upper</span> <span class="o">+</span> <span class="n">dN</span><span class="p">:(</span><span class="n">N</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1j</span><span class="p">]</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">weights</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">weights</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">weights</span><span class="o">=</span><span class="bp">None</span>
+        <span class="n">DataHist</span><span class="p">,</span> <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="n">mesh</span> <span class="o">-</span> <span class="n">dN</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                                           <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+        <span class="n">DataHist</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">DataHist</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">DataHist</span> <span class="o">=</span> <span class="n">DataHist</span> <span class="o">/</span> <span class="n">kde</span><span class="o">.</span><span class="n">total_weights</span>
+        <span class="n">FFTData</span> <span class="o">=</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">DataHist</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">t_star</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bw</span> <span class="o">/</span> <span class="n">R</span><span class="p">)</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">-</span> <span class="n">N</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">t_star</span><span class="p">,</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">smth</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+
+        <span class="n">SmoothFFTData</span> <span class="o">=</span> <span class="n">FFTData</span> <span class="o">*</span> <span class="n">smth</span>
+        <span class="n">density</span> <span class="o">=</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">SmoothFFTData</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">mesh</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">mesh</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">density</span><span class="o">.</span><span class="n">real</span>
+
+    <span class="k">def</span> <span class="nf">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">kde</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kde</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Error, cyclic boundary conditions require &quot;</span>
+                             <span class="s">&quot;a closed domain.&quot;</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">N</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">12</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KDE1DMethod</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numeric_cdf_grid</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">grid_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">2</span><span class="o">**</span><span class="mi">14</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">**</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">N</span><span class="p">)))</span>
+</div>
+<span class="n">cyclic</span> <span class="o">=</span> <span class="n">CyclicMethod</span><span class="p">()</span>
+
+<span class="n">Transform</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s">&#39;Tranform&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s">&#39;__call__&#39;</span><span class="p">,</span> <span class="s">&#39;inv&#39;</span><span class="p">,</span> <span class="s">&#39;Dinv&#39;</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">_inverse</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+<span class="n">LogTransform</span> <span class="o">=</span> <span class="n">Transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">)</span>
+<span class="n">ExpTransform</span> <span class="o">=</span> <span class="n">Transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">,</span> <span class="n">_inverse</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">transform_distribution</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">Dinv</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Transform a distribution into another one by a change a variable.</span>
+
+<span class="sd">    :param ndarray xs: Evaluation points of the distribution</span>
+<span class="sd">    :param ndarray ys: Distribution value on the points xs</span>
+<span class="sd">    :param func Dinv: Function evaluating the derivative of the inverse transformation  function</span>
+<span class="sd">    :param ndarray out: Array in which to store the result</span>
+<span class="sd">    :rtype: ndarray</span>
+<span class="sd">    :returns: The variable ``out``, updated wih the transformed distribution</span>
+
+<span class="sd">    Given a random variable :math:`X` of distribution :math:`f_X`, the random</span>
+<span class="sd">    variable :math:`Y = g(X)` has a distribution :math:`f_Y` given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_Y(y) = \left| \frac{1}{g&#39;(g^{-1}(y))} \right| \cdot f_X(g^{-1}(y))</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sel</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="n">Dinv</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+    <span class="n">_inverse</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<div class="viewcode-block" id="create_transform"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.create_transform">[docs]</a><span class="k">def</span> <span class="nf">create_transform</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">inv</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Dinv</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a transform object.</span>
+
+<span class="sd">    :param fun obj: This can be either simple a function, or a function-object with an &#39;inv&#39; and/or &#39;Dinv&#39; attributes</span>
+<span class="sd">        containing the inverse function and its derivative (respectively)</span>
+<span class="sd">    :param fun inv: If provided, inverse of the main function</span>
+<span class="sd">    :param fun Dinv: If provided, derivative of the inverse function</span>
+<span class="sd">    :rtype: Transform</span>
+<span class="sd">    :returns: A transform object with function, inverse and derivative of the inverse</span>
+
+<span class="sd">    The inverse function must be provided, either as argument or as attribute to the object. The derivative of the </span>
+<span class="sd">    inverse will be estimated numerically if not provided.</span>
+
+<span class="sd">    :Note: All the functions should accept an ``out`` argument to store the result.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Transform</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">obj</span>
+    <span class="n">fct</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__call__</span>
+    <span class="k">if</span> <span class="n">inv</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&#39;inv&#39;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s">&quot;Error, transform object must have a &#39;inv&#39; &quot;</span>
+                                 <span class="s">&quot;attribute or you must specify the &#39;inv&#39; argument&quot;</span><span class="p">)</span>
+        <span class="n">inv</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">inv</span>
+    <span class="k">if</span> <span class="n">Dinv</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&#39;Dinv&#39;</span><span class="p">):</span>
+            <span class="n">Dinv</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">Dinv</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nd">@numpy_trans_idx</span>
+            <span class="k">def</span> <span class="nf">Dinv</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="n">dx</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">1e-9</span>
+                <span class="n">dx</span><span class="p">[</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dx</span><span class="p">[</span><span class="n">x</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">])</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">inv</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)</span> <span class="o">-</span> <span class="n">inv</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">dx</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Transform</span><span class="p">(</span><span class="n">fct</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">Dinv</span><span class="p">)</span>
+</div>
+<span class="k">class</span> <span class="nc">_fakeKDE</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">method</span>
+
+<div class="viewcode-block" id="TransformKDE1DMethod"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.TransformKDE1DMethod">[docs]</a><span class="k">class</span> <span class="nc">TransformKDE1DMethod</span><span class="p">(</span><span class="n">KDE1DMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Compute the Kernel Density Estimate of a dataset, transforming it first to </span>
+<span class="sd">    a domain where distances are &quot;more meaningful&quot;.</span>
+
+<span class="sd">    Often, KDE is best estimated in a different domain. This object takes </span>
+<span class="sd">    a KDE1D object (or one compatible), and a transformation function.</span>
+
+<span class="sd">    Given a random variable :math:`X` of distribution :math:`f_X`, the random </span>
+<span class="sd">    variable :math:`Y = g(X)` has a distribution :math:`f_Y` given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_Y(y) = \left| \frac{1}{g&#39;(g^{-1}(y))} \right| \cdot f_X(g^{-1}(y))</span>
+
+<span class="sd">    In our term, :math:`Y` is the random variable the user is interested in, </span>
+<span class="sd">    and :math:`X` the random variable we can estimate using the KDE. In this </span>
+<span class="sd">    case, :math:`g` is the transform from :math:`Y` to :math:`X`.</span>
+
+<span class="sd">    So to estimate the distribution on a set of points given in :math:`x`, we </span>
+<span class="sd">    need a total of three functions:</span>
+
+<span class="sd">        - Direct function: transform from the original space to the one in </span>
+<span class="sd">          which the KDE will be perform (i.e. :math:`g^{-1}: y \mapsto x`)</span>
+<span class="sd">        - Invert function: transform from the KDE space to the original one </span>
+<span class="sd">          (i.e. :math:`g: x \mapsto y`)</span>
+<span class="sd">        - Derivative of the invert function</span>
+
+<span class="sd">    If the derivative is not provided, it will be estimated numerically.</span>
+
+<span class="sd">    :param trans: Either a simple function, or a function object with</span>
+<span class="sd">        attributes `inv` and `Dinv` to use in case they are not provided as </span>
+<span class="sd">        arguments. The helper :py:func:`create_transform` will provide numeric </span>
+<span class="sd">        approximation of the derivative if required.</span>
+<span class="sd">    :param method: instance of KDE1DMethod used in the transformed domain.</span>
+<span class="sd">        Default is :py:class:`pyqt_fit.kde_methods.KDE1DMethod`</span>
+<span class="sd">    :param inv: Invert of the function. If not provided, `trans` must have</span>
+<span class="sd">        it as attribute.</span>
+<span class="sd">    :param Dinv: Derivative of the invert function.</span>
+
+<span class="sd">    :Note: all given functions should accept an optional ``out`` argument to</span>
+<span class="sd">        get a pre-allocated array to store its result. Also the ``out`` </span>
+<span class="sd">        parameter may be one of the input argument.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">inv</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Dinv</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span> <span class="o">=</span> <span class="n">create_transform</span><span class="p">(</span><span class="n">trans</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">Dinv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="n">KDE1DMethod</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method called by the KDE1D object right after fitting to allow for </span>
+<span class="sd">        one-time calculation.</span>
+
+<span class="sd">        This method copy, and transform, the various attributes of the KDE.</span>
+
+<span class="sd">        :param pyqt_fit.kde.KDE1D kde: KDE object being fitted</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fake_kde</span> <span class="o">=</span> <span class="n">_fakeKDE</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">fake_kde</span><span class="o">.</span><span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span>
+        <span class="n">fake_kde</span><span class="o">.</span><span class="n">upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span>
+        <span class="n">fake_kde</span><span class="o">.</span><span class="n">xdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
+
+        <span class="n">copy_attrs</span> <span class="o">=</span> <span class="p">[</span> <span class="s">&#39;weights&#39;</span><span class="p">,</span> <span class="s">&#39;lambdas&#39;</span><span class="p">,</span> <span class="s">&#39;kernel&#39;</span>
+                     <span class="p">,</span> <span class="s">&#39;bandwidth&#39;</span><span class="p">,</span> <span class="s">&#39;covariance&#39;</span>
+                     <span class="p">,</span> <span class="s">&#39;bandwidth_function&#39;</span>
+                     <span class="p">,</span> <span class="s">&#39;covariance_function&#39;</span>
+                     <span class="p">,</span> <span class="s">&#39;total_weights&#39;</span> <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">copy_attrs</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">kde</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+
+        <span class="c"># Compute the bandwidth for the fake KDE and update the KDE itself</span>
+        <span class="n">bw</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">compute_bandwidth</span><span class="p">(</span><span class="n">fake_kde</span><span class="p">)</span>
+        <span class="n">fake_kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">bandwidth</span> <span class="o">=</span> <span class="n">bw</span>
+        <span class="n">fake_kde</span><span class="o">.</span><span class="n">covariance</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">covariance</span> <span class="o">=</span> <span class="n">cov</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span> <span class="o">=</span> <span class="n">fake_kde</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="n">trans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span>
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">trans</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">transform_distribution</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">trans</span><span class="o">.</span><span class="n">Dinv</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="n">trans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span>
+        <span class="n">transform_distribution</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">trans</span><span class="o">.</span><span class="n">Dinv</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">ys</span><span class="p">)</span>
+        <span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">points</span><span class="p">),</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">cdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span>
+
+    <span class="k">def</span> <span class="nf">sf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="p">(</span><span class="n">points</span><span class="p">),</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">sf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">sf_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">xs</span><span class="p">),</span> <span class="n">ys</span>
+
+    <span class="k">def</span> <span class="nf">icdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">icdf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">icdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">icdf_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">ys</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">ys</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span>
+
+    <span class="k">def</span> <span class="nf">isf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">isf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span> <span class="nf">isf_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kde</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cut</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">isf_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fake_kde</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">cut</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trans</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">ys</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">ys</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span>
+</div>
+<div class="viewcode-block" id="transformKDE1D"><a class="viewcode-back" href="../../mod_kde_methods.html#pyqt_fit.kde_methods.transformKDE1D">[docs]</a><span class="k">def</span> <span class="nf">transformKDE1D</span><span class="p">(</span><span class="n">trans</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">inv</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Dinv</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an instance of :py:class:`TransformKDE1DMethod`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TransformKDE1DMethod</span><span class="p">(</span><span class="n">trans</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">Dinv</span><span class="p">)</span>
+</div>
+<span class="n">default_method</span> <span class="o">=</span> <span class="n">reflection</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

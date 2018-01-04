@@ -1,0 +1,592 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyqt_fit.npr_methods &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyqt_fit.npr_methods</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">:Author: Pierre Barbier de Reuille &lt;pierre.barbierdereuille@gmail.com&gt;</span>
+
+<span class="sd">Module implementing non-parametric regressions using kernel methods.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span><span class="p">,</span> <span class="n">linalg</span>
+<span class="kn">import</span> <span class="nn">scipy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">.compat</span> <span class="kn">import</span> <span class="n">irange</span>
+<span class="kn">from</span> <span class="nn">.cyth</span> <span class="kn">import</span> <span class="n">HAS_CYTHON</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">kde</span>
+
+<span class="n">local_linear</span> <span class="o">=</span> <span class="bp">None</span>
+
+<span class="k">def</span> <span class="nf">useCython</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Switch to using Cython methods if available</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">local_linear</span>
+    <span class="k">if</span> <span class="n">HAS_CYTHON</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">cy_local_linear</span>
+        <span class="n">local_linear</span> <span class="o">=</span> <span class="n">cy_local_linear</span>
+
+
+<span class="k">def</span> <span class="nf">usePython</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Switch to using the python implementation of the methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">local_linear</span>
+    <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">py_local_linear</span>
+    <span class="n">local_linear</span> <span class="o">=</span> <span class="n">py_local_linear</span>
+
+<span class="k">if</span> <span class="n">HAS_CYTHON</span><span class="p">:</span>
+    <span class="n">useCython</span><span class="p">()</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">usePython</span><span class="p">()</span>
+
+<div class="viewcode-block" id="compute_bandwidth"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.compute_bandwidth">[docs]</a><span class="k">def</span> <span class="nf">compute_bandwidth</span><span class="p">(</span><span class="n">reg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the bandwidth and covariance for the model, based of its xdata attribute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">reg</span><span class="o">.</span><span class="n">bandwidth_function</span><span class="p">:</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">bandwidth_function</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">reg</span><span class="p">))</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bw</span><span class="p">,</span> <span class="n">bw</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+    <span class="k">elif</span> <span class="n">reg</span><span class="o">.</span><span class="n">covariance_function</span><span class="p">:</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">covariance_function</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">reg</span><span class="p">))</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">sqrtm</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">reg</span><span class="o">.</span><span class="n">bandwidth</span><span class="p">,</span> <span class="n">reg</span><span class="o">.</span><span class="n">covariance</span>
+    <span class="k">return</span> <span class="n">bw</span><span class="p">,</span> <span class="n">cov</span>
+
+</div>
+<div class="viewcode-block" id="RegressionKernelMethod"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.RegressionKernelMethod">[docs]</a><span class="k">class</span> <span class="nc">RegressionKernelMethod</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Base class for regression kernel methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="RegressionKernelMethod.fit"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.RegressionKernelMethod.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit the method and returns the fitted object that will be used for actual evaluation.</span>
+
+<span class="sd">        The object needs to call the :py:meth:`pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth` </span>
+<span class="sd">        method with the computed bandwidth and covariance.</span>
+
+<span class="sd">        :Default: Compute the bandwidth based on the real data and set it in the regression object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reg</span><span class="o">.</span><span class="n">set_actual_bandwidth</span><span class="p">(</span><span class="o">*</span><span class="n">compute_bandwidth</span><span class="p">(</span><span class="n">reg</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+</div>
+<div class="viewcode-block" id="RegressionKernelMethod.evaluate"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.RegressionKernelMethod.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the regression of the provided points.</span>
+
+<span class="sd">        :param ndarray points: 2d-array of points to compute the regression on. Each column is a point.</span>
+<span class="sd">        :param ndarray out: 1d-array in which to store the result</span>
+<span class="sd">        :rtype: ndarray</span>
+<span class="sd">        :return: The method must return the ``out`` array, updated with the regression values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+</div></div>
+<div class="viewcode-block" id="SpatialAverage"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.SpatialAverage">[docs]</a><span class="k">class</span> <span class="nc">SpatialAverage</span><span class="p">(</span><span class="n">RegressionKernelMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Perform a Nadaraya-Watson regression on the data (i.e. also called</span>
+<span class="sd">    local-constant regression) using a gaussian kernel.</span>
+
+<span class="sd">    The Nadaraya-Watson estimate is given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_n(x) \triangleq \frac{\sum_i K\left(\frac{x-X_i}{h}\right) Y_i}</span>
+<span class="sd">        {\sum_i K\left(\frac{x-X_i}{h}\right)}</span>
+
+<span class="sd">    Where :math:`K(x)` is the kernel and must be such that :math:`E(K(x)) = 0`</span>
+<span class="sd">    and :math:`h` is the bandwidth of the method.</span>
+
+<span class="sd">    :param ndarray xdata: Explaining variables (at most 2D array)</span>
+<span class="sd">    :param ndarray ydata: Explained variables (should be 1D array)</span>
+
+<span class="sd">    :type  cov: ndarray or callable</span>
+<span class="sd">    :param cov: If an ndarray, it should be a 2D array giving the matrix of</span>
+<span class="sd">        covariance of the gaussian kernel. Otherwise, it should be a function</span>
+<span class="sd">        ``cov(xdata, ydata)`` returning the covariance matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">correction</span> <span class="o">=</span> <span class="mf">1.</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">):</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">SpatialAverage</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_cov</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">covariance</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="n">d</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">points</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,),</span> <span class="n">points</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">xdata</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="n">ydata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">ydata</span>
+        <span class="n">correction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">inv_cov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inv_cov</span>
+        <span class="k">assert</span> <span class="n">out</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">m</span><span class="p">,)</span>
+
+        <span class="n">out</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c"># iterate on the internal points</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">irange</span><span class="p">(</span><span class="n">N</span><span class="p">),</span>
+                                  <span class="n">irange</span><span class="p">(</span><span class="n">correction</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+            <span class="n">diff</span> <span class="o">=</span> <span class="n">correction</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">xdata</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">points</span><span class="p">)</span>
+            <span class="n">tdiff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">inv_cov</span><span class="p">,</span> <span class="n">diff</span><span class="p">)</span>
+            <span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">diff</span> <span class="o">*</span> <span class="n">tdiff</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">+=</span> <span class="n">ydata</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">energy</span>
+            <span class="n">norm</span> <span class="o">+=</span> <span class="n">energy</span>
+
+        <span class="n">out</span><span class="p">[</span><span class="n">norm</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/=</span> <span class="n">norm</span><span class="p">[</span><span class="n">norm</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">correction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The correction coefficient allows to change the width of the kernel</span>
+<span class="sd">        depending on the point considered. It can be either a constant (to</span>
+<span class="sd">        correct globaly the kernel width), or a 1D array of same size as the</span>
+<span class="sd">        input.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_correction</span>
+
+    <span class="nd">@correction.setter</span>
+<div class="viewcode-block" id="SpatialAverage.correction"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.SpatialAverage.correction">[docs]</a>    <span class="k">def</span> <span class="nf">correction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;Error, the correction must be a single value or a 1D array&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_correction</span> <span class="o">=</span> <span class="n">value</span>
+</div>
+<div class="viewcode-block" id="SpatialAverage.set_density_correction"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.SpatialAverage.set_density_correction">[docs]</a>    <span class="k">def</span> <span class="nf">set_density_correction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a correction coefficient depending on the density of the input</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">est</span> <span class="o">=</span> <span class="n">kde</span><span class="o">.</span><span class="n">KDE1D</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
+        <span class="n">dens</span> <span class="o">=</span> <span class="n">est</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">dens</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">dens</span><span class="p">[</span><span class="n">dens</span> <span class="o">&lt;</span> <span class="mf">1e-50</span><span class="p">]</span> <span class="o">=</span> <span class="n">dm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_correction</span> <span class="o">=</span> <span class="n">dm</span> <span class="o">/</span> <span class="n">dens</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="SpatialAverage.q"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.SpatialAverage.q">[docs]</a>    <span class="k">def</span> <span class="nf">q</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Degree of the fitted polynom</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span>
+</div></div>
+<div class="viewcode-block" id="LocalLinearKernel1D"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalLinearKernel1D">[docs]</a><span class="k">class</span> <span class="nc">LocalLinearKernel1D</span><span class="p">(</span><span class="n">RegressionKernelMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Perform a local-linear regression using a gaussian kernel.</span>
+
+<span class="sd">    The local constant regression is the function that minimises, for each</span>
+<span class="sd">    position:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}</span>
+<span class="sd">            \sum_i K\left(\frac{x-X_i}{h}\right)</span>
+<span class="sd">            \left(Y_i - a_0 - a_1(x-X_i)\right)^2</span>
+
+<span class="sd">    Where :math:`K(x)` is the kernel and must be such that :math:`E(K(x)) = 0`</span>
+<span class="sd">    and :math:`h` is the bandwidth of the method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">LocalLinearKernel1D</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the spatial averaging on a set of points</span>
+
+<span class="sd">        :param ndarray points: Points to evaluate the averaging on</span>
+<span class="sd">        :param ndarray result: If provided, the result will be put in this</span>
+<span class="sd">            array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">xdata</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ll</span> <span class="o">=</span> <span class="n">local_linear</span><span class="o">.</span><span class="n">local_linear_1d</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">out</span><span class="o">.</span><span class="n">flags</span><span class="p">[</span><span class="s">&#39;C_CONTIGUOUS&#39;</span><span class="p">]:</span>
+            <span class="n">ll</span> <span class="o">=</span> <span class="n">py_local_linear</span><span class="o">.</span><span class="n">local_linear_1d</span>
+        <span class="n">li2</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="n">ll</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">bandwidth</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">reg</span><span class="o">.</span><span class="n">ydata</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">li2</span> <span class="o">=</span> <span class="n">li2</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="LocalLinearKernel1D.q"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalLinearKernel1D.q">[docs]</a>    <span class="k">def</span> <span class="nf">q</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Degree of the fitted polynom</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span>
+</div></div>
+<div class="viewcode-block" id="PolynomialDesignMatrix1D"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.PolynomialDesignMatrix1D">[docs]</a><span class="k">class</span> <span class="nc">PolynomialDesignMatrix1D</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">degree</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">degree</span> <span class="o">=</span> <span class="n">degree</span>
+        <span class="n">powers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">powers</span> <span class="o">=</span> <span class="n">powers</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dX</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">powers</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="LocalPolynomialKernel1D"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalPolynomialKernel1D">[docs]</a><span class="k">class</span> <span class="nc">LocalPolynomialKernel1D</span><span class="p">(</span><span class="n">RegressionKernelMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Perform a local-polynomial regression using a user-provided kernel</span>
+<span class="sd">    (Gaussian by default).</span>
+
+<span class="sd">    The local constant regression is the function that minimises, for each</span>
+<span class="sd">    position:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}</span>
+<span class="sd">            \sum_i K\left(\frac{x-X_i}{h}\right)</span>
+<span class="sd">            \left(Y_i - a_0 - a_1(x-X_i) - \ldots -</span>
+<span class="sd">                a_q \frac{(x-X_i)^q}{q!}\right)^2</span>
+
+<span class="sd">    Where :math:`K(x)` is the kernel such that :math:`E(K(x)) = 0`, :math:`q`</span>
+<span class="sd">    is the order of the fitted polynomial  and :math:`h` is the bandwidth of</span>
+<span class="sd">    the method. It is also recommended to have :math:`\int_\mathbb{R} x^2K(x)dx</span>
+<span class="sd">    = 1`, (i.e. variance of the kernel is 1) or the effective bandwidth will be</span>
+<span class="sd">    scaled by the square-root of this integral (i.e. the standard deviation of</span>
+<span class="sd">    the kernel).</span>
+
+<span class="sd">    :param ndarray xdata: Explaining variables (at most 2D array)</span>
+<span class="sd">    :param ndarray ydata: Explained variables (should be 1D array)</span>
+<span class="sd">    :param int q: Order of the polynomial to fit. **Default:** 3</span>
+
+<span class="sd">    :type  cov: float or callable</span>
+<span class="sd">    :param cov: If an float, it should be a variance of the gaussian kernel.</span>
+<span class="sd">        Otherwise, it should be a function ``cov(xdata, ydata)`` returning</span>
+<span class="sd">        the variance.</span>
+<span class="sd">        **Default:** ``scotts_covariance``</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">q</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">reg</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;This method can only be used with 1D data&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">SpatialAverage</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">LocalLinearKernel1D</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">LocalPolynomialKernel1D</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">designMatrix</span> <span class="o">=</span> <span class="n">PolynomialDesignMatrix1D</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the spatial averaging on a set of points</span>
+
+<span class="sd">        :param ndarray points: Points to evaluate the averaging on</span>
+<span class="sd">        :param ndarray result: If provided, the result will be put</span>
+<span class="sd">            in this array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">xdata</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>  <span class="c"># make it a column vector</span>
+        <span class="n">ydata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">ydata</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>  <span class="c"># make it a column vector</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c"># make it a line vector</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">bandwidth</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">kernel</span>
+        <span class="n">designMatrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">designMatrix</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">points</span><span class="p">):</span>
+            <span class="n">dX</span> <span class="o">=</span> <span class="p">(</span><span class="n">xdata</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span>
+            <span class="n">Wx</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">dX</span> <span class="o">/</span> <span class="n">bw</span><span class="p">)</span>
+            <span class="n">Xx</span> <span class="o">=</span> <span class="n">designMatrix</span><span class="p">(</span><span class="n">dX</span><span class="p">)</span>
+            <span class="n">WxXx</span> <span class="o">=</span> <span class="n">Wx</span> <span class="o">*</span> <span class="n">Xx</span>
+            <span class="n">XWX</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Xx</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">WxXx</span><span class="p">)</span>
+            <span class="n">Lx</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">XWX</span><span class="p">,</span> <span class="n">WxXx</span><span class="o">.</span><span class="n">T</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Lx</span><span class="p">,</span> <span class="n">ydata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="LocalPolynomialKernel1D.q"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalPolynomialKernel1D.q">[docs]</a>    <span class="k">def</span> <span class="nf">q</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Degree of the fitted polynom</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span>
+</div></div>
+<div class="viewcode-block" id="PolynomialDesignMatrix"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.PolynomialDesignMatrix">[docs]</a><span class="k">class</span> <span class="nc">PolynomialDesignMatrix</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class used to create a design matrix for polynomial regression</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">deg</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">deg</span> <span class="o">=</span> <span class="n">deg</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_designMatrixSize</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_designMatrixSize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the size of the design matrix for a n-D problem of order d.</span>
+<span class="sd">        Can also compute the Taylors factors (i.e. the factors that would be</span>
+<span class="sd">        applied for the taylor decomposition)</span>
+
+<span class="sd">        :param int dim: Dimension of the problem</span>
+<span class="sd">        :param int deg: Degree of the fitting polynomial</span>
+<span class="sd">        :param bool factors: If true, the out includes the Taylor factors</span>
+
+<span class="sd">        :returns: The number of columns in the design matrix and, if required,</span>
+<span class="sd">            a ndarray with the taylor coefficients for each column of</span>
+<span class="sd">            the design matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="n">deg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">deg</span>
+        <span class="n">init</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">init</span>
+        <span class="n">prev</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c">#if factors:</span>
+        <span class="c">#    fcts = [1]</span>
+        <span class="n">fact</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">deg</span><span class="p">):</span>
+            <span class="n">diff</span> <span class="o">=</span> <span class="n">cur</span> <span class="o">-</span> <span class="n">prev</span>
+            <span class="n">prev</span> <span class="o">=</span> <span class="n">cur</span>
+            <span class="n">old_dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+            <span class="n">fact</span> <span class="o">*=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">dp</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">-</span> <span class="n">old_dims</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">cur</span> <span class="o">+=</span> <span class="n">dp</span>
+                <span class="n">dims</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">dp</span>
+        <span class="c">#    if factors:</span>
+        <span class="c">#        fcts += [fact]*(cur-prev)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">cur</span>
+        <span class="c">#self.factors = np.array(fcts)</span>
+
+<div class="viewcode-block" id="PolynomialDesignMatrix.__call__"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.PolynomialDesignMatrix.__call__">[docs]</a>    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates the design matrix for polynomial fitting using the points x.</span>
+
+<span class="sd">        :param ndarray x: Points to create the design matrix.</span>
+<span class="sd">            Shape must be (D,N) or (N,), where D is the dimension of</span>
+<span class="sd">            the problem, 1 if not there.</span>
+
+<span class="sd">        :param int deg: Degree of the fitting polynomial</span>
+
+<span class="sd">        :param ndarray factors: Scaling factor for the columns of the design</span>
+<span class="sd">            matrix. The shape should be (M,) or (M,1), where M is the number</span>
+<span class="sd">            of columns of the out. This value can be obtained using</span>
+<span class="sd">            the :py:func:`designMatrixSize` function.</span>
+
+<span class="sd">        :returns: The design matrix as a (M,N) matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span><span class="p">,</span> <span class="n">deg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">deg</span>
+        <span class="c">#factors = self.factors</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_designMatrixSize</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">deg</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">s</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">deg</span><span class="p">):</span>
+            <span class="n">old_dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+            <span class="n">prev</span> <span class="o">=</span> <span class="n">cur</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">dims</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">cur</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">old_dims</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">prev</span><span class="p">):</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">out</span><span class="p">[</span><span class="n">cur</span><span class="p">])</span>
+                    <span class="n">cur</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c">#if factors is not None:</span>
+        <span class="c">#    factors = np.asarray(factors)</span>
+        <span class="c">#    if len(factors.shape) == 1:</span>
+        <span class="c">#        factors = factors[:,np.newaxis]</span>
+        <span class="c">#    out /= factors</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+</div></div>
+<div class="viewcode-block" id="LocalPolynomialKernel"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalPolynomialKernel">[docs]</a><span class="k">class</span> <span class="nc">LocalPolynomialKernel</span><span class="p">(</span><span class="n">RegressionKernelMethod</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Perform a local-polynomial regression in N-D using a user-provided kernel</span>
+<span class="sd">    (Gaussian by default).</span>
+
+<span class="sd">    The local constant regression is the function that minimises,</span>
+<span class="sd">    for each position:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}</span>
+<span class="sd">            \sum_i K\left(\frac{x-X_i}{h}\right)</span>
+<span class="sd">            \left(Y_i - a_0 - \mathcal{P}_q(X_i-x)\right)^2</span>
+
+<span class="sd">    Where :math:`K(x)` is the kernel such that :math:`E(K(x)) = 0`, :math:`q`</span>
+<span class="sd">    is the order of the fitted polynomial, :math:`\mathcal{P}_q(x)` is a</span>
+<span class="sd">    polynomial of order :math:`d` in :math:`x` and :math:`h` is the bandwidth</span>
+<span class="sd">    of the method.</span>
+
+<span class="sd">    The polynomial :math:`\mathcal{P}_q(x)` is of the form:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \mathcal{F}_d(k) = \left\{ \n \in \mathbb{N}^d \middle|</span>
+<span class="sd">            \sum_{i=1}^d n_i = k \right\}</span>
+
+<span class="sd">        \mathcal{P}_q(x_1,\ldots,x_d) = \sum_{k=1}^q</span>
+<span class="sd">            \sum_{\n\in\mathcal{F}_d(k)} a_{k,\n}</span>
+<span class="sd">            \prod_{i=1}^d x_i^{n_i}</span>
+
+<span class="sd">    For example we have:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \mathcal{P}_2(x,y) = a_{110} x + a_{101} y + a_{220} x^2 +</span>
+<span class="sd">            a_{211} xy + a_{202} y^2</span>
+
+<span class="sd">    :param ndarray xdata: Explaining variables (at most 2D array).</span>
+<span class="sd">        The shape should be (N,D) with D the dimension of the problem</span>
+<span class="sd">        and N the number of points. For 1D array, the shape can be (N,),</span>
+<span class="sd">        in which case it will be converted to (N,1) array.</span>
+<span class="sd">    :param ndarray ydata: Explained variables (should be 1D array). The shape</span>
+<span class="sd">        must be (N,).</span>
+<span class="sd">    :param int q: Order of the polynomial to fit. **Default:** 3</span>
+<span class="sd">    :param callable kernel: Kernel to use for the weights. Call is</span>
+<span class="sd">        ``kernel(points)`` and should return an array of values the same size</span>
+<span class="sd">        as ``points``. If ``None``, the kernel will be ``normal_kernel(D)``.</span>
+
+<span class="sd">    :type  cov: float or callable</span>
+<span class="sd">    :param cov: If an float, it should be a variance of the gaussian kernel.</span>
+<span class="sd">        Otherwise, it should be a function ``cov(xdata, ydata)`` returning</span>
+<span class="sd">        the variance.</span>
+<span class="sd">        **Default:** ``scotts_covariance``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_q</span> <span class="o">=</span> <span class="n">q</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">q</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Degree of the fitted polynomials</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q</span>
+
+    <span class="nd">@q.setter</span>
+<div class="viewcode-block" id="LocalPolynomialKernel.q"><a class="viewcode-back" href="../../mod_npr_methods.html#pyqt_fit.npr_methods.LocalPolynomialKernel.q">[docs]</a>    <span class="k">def</span> <span class="nf">q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_q</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">reg</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">LocalPolynomialKernel1D</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">LocalPolynomialKernel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">designMatrix</span> <span class="o">=</span> <span class="n">PolynomialDesignMatrix</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reg</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">out</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the spatial averaging on a set of points</span>
+
+<span class="sd">        :param ndarray points: Points to evaluate the averaging on</span>
+<span class="sd">        :param ndarray out: Pre-allocated array for the result</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">ydata</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">ydata</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>  <span class="c"># make it a column vector</span>
+        <span class="n">d</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">designMatrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">designMatrix</span>
+        <span class="n">dm_size</span> <span class="o">=</span> <span class="n">designMatrix</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">Xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">dm_size</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">WxXx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">Xx</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">XWX</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">dm_size</span><span class="p">,</span> <span class="n">dm_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">inv_bw</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">bandwidth</span><span class="p">)</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">kernel</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">irange</span><span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">dX</span> <span class="o">=</span> <span class="p">(</span><span class="n">xdata</span> <span class="o">-</span> <span class="n">points</span><span class="p">[:,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">Wx</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">inv_bw</span><span class="p">,</span> <span class="n">dX</span><span class="p">))</span>
+            <span class="n">designMatrix</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">Xx</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">Wx</span><span class="p">,</span> <span class="n">Xx</span><span class="p">,</span> <span class="n">WxXx</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Xx</span><span class="p">,</span> <span class="n">WxXx</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">XWX</span><span class="p">)</span>
+            <span class="n">Lx</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">XWX</span><span class="p">,</span> <span class="n">WxXx</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Lx</span><span class="p">,</span> <span class="n">ydata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<span class="n">default_method</span> <span class="o">=</span> <span class="n">LocalPolynomialKernel</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

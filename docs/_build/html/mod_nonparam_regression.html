@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.nonparam_regression &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="next" title="Module pyqt_fit.npr_methods" href="mod_npr_methods.html" />
+    <link rel="prev" title="Module pyqt_fit.bootstrap" href="mod_bootstrap.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_npr_methods.html" title="Module pyqt_fit.npr_methods"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mod_bootstrap.html" title="Module pyqt_fit.bootstrap"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.nonparam_regression">
+<span id="module-pyqt-fit-nonparam-regression"></span><h1>Module <a class="reference internal" href="#module-pyqt_fit.nonparam_regression" title="pyqt_fit.nonparam_regression"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.nonparam_regression</span></tt></a><a class="headerlink" href="#module-pyqt_fit.nonparam_regression" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>Module implementing non-parametric regressions using kernel methods.</p>
+<dl class="class">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.nonparam_regression.</tt><tt class="descname">NonParamRegression</tt><big>(</big><em>xdata</em>, <em>ydata</em>, <em>**kwords</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class performing kernel-based non-parametric regression.</p>
+<p>The calculation is split in three parts:</p>
+<blockquote>
+<div><ul class="simple">
+<li>The kernel (<a class="reference internal" href="#pyqt_fit.nonparam_regression.NonParamRegression.kernel" title="pyqt_fit.nonparam_regression.NonParamRegression.kernel"><tt class="xref py py-attr docutils literal"><span class="pre">kernel</span></tt></a>)</li>
+<li>Bandwidth computation (<a class="reference internal" href="#pyqt_fit.nonparam_regression.NonParamRegression.bandwidth" title="pyqt_fit.nonparam_regression.NonParamRegression.bandwidth"><tt class="xref py py-attr docutils literal"><span class="pre">bandwidth</span></tt></a>, <a class="reference internal" href="#pyqt_fit.nonparam_regression.NonParamRegression.covariance" title="pyqt_fit.nonparam_regression.NonParamRegression.covariance"><tt class="xref py py-attr docutils literal"><span class="pre">covariance</span></tt></a>)</li>
+<li>Regression method (<a class="reference internal" href="#pyqt_fit.nonparam_regression.NonParamRegression.method" title="pyqt_fit.nonparam_regression.NonParamRegression.method"><tt class="xref py py-attr docutils literal"><span class="pre">method</span></tt></a>)</li>
+</ul>
+</div></blockquote>
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.N">
+<tt class="descname">N</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.N"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.N" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of points in the dataset (set by the fitting)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.bandwidth">
+<tt class="descname">bandwidth</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.bandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.bandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bandwidth of the kernel.</p>
+<p>This is defined as the square root of the covariance matrix</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.covariance">
+<tt class="descname">covariance</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.covariance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.covariance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Covariance matrix of the kernel.</p>
+<p>It must be of the right dimension!</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.dim">
+<tt class="descname">dim</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.dim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.dim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dimension of the domain (set by the fitting)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.fit">
+<tt class="descname">fit</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to call to fit the parameters of the fitting</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.fitted">
+<tt class="descname">fitted</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.fitted"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.fitted" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the fitting needs to be performed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.fitted_method">
+<tt class="descname">fitted_method</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.fitted_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.fitted_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method actually used after fitting.</p>
+<p>The main method may choose to provide a more tuned method during fitting.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.kernel">
+<tt class="descname">kernel</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.kernel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Kernel object. Should provide the following methods:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">kernel.pdf(xs)</span></tt></dt>
+<dd>Density of the kernel, denoted <span class="math">\(K(x)\)</span></dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.kernel_type">
+<tt class="descname">kernel_type</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.kernel_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.kernel_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type of the kernel. The kernel type is a class or function accepting
+the dimension of the domain as argument and returning a valid kernel object.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.lower">
+<tt class="descname">lower</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.lower"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.lower" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lower bound of the domain for each dimension</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.method">
+<tt class="descname">method</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Regression method itself. It should be an instance of the class following the template 
+<a class="reference internal" href="mod_npr_methods.html#pyqt_fit.npr_methods.RegressionKernelMethod" title="pyqt_fit.npr_methods.RegressionKernelMethod"><tt class="xref py py-class docutils literal"><span class="pre">pyqt_fit.npr_methods.RegressionKernelMethod</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.need_fit">
+<tt class="descname">need_fit</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.need_fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.need_fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calling this function will mark the object as needing fitting.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth">
+<tt class="descname">set_actual_bandwidth</tt><big>(</big><em>bandwidth</em>, <em>covariance</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.set_actual_bandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method computing the bandwidth if needed (i.e. if it was defined by functions)</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.upper">
+<tt class="descname">upper</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.upper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.upper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lower bound of the domain for each dimension</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.xdata">
+<tt class="descname">xdata</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.xdata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.xdata" title="Permalink to this definition">¶</a></dt>
+<dd><p>2D array (D,N) with D the dimension of the domain and N the number of points.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.nonparam_regression.NonParamRegression.ydata">
+<tt class="descname">ydata</tt><a class="reference internal" href="_modules/pyqt_fit/nonparam_regression.html#NonParamRegression.ydata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.nonparam_regression.NonParamRegression.ydata" title="Permalink to this definition">¶</a></dt>
+<dd><p>1D array (N,) of values for each point in xdata</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_bootstrap.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.bootstrap</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mod_npr_methods.html"
+                        title="next chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.npr_methods</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_nonparam_regression.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_npr_methods.html" title="Module pyqt_fit.npr_methods"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mod_bootstrap.html" title="Module pyqt_fit.bootstrap"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

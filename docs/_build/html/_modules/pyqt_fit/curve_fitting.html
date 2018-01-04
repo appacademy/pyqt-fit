@@ -1,0 +1,500 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyqt_fit.curve_fitting &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyqt_fit.curve_fitting</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">:Author: Pierre Barbier de Reuille &lt;pierre.barbierdereuille@gmail.com&gt;</span>
+
+<span class="sd">This module specifically implement the curve fitting, wrapping the default</span>
+<span class="sd">scipy.optimize.leastsq function. It allows for parameter value fixing,</span>
+<span class="sd">different kind of residual and added constraints function.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">optimize</span>
+<span class="kn">from</span> <span class="nn">.compat</span> <span class="kn">import</span> <span class="n">lrange</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+
+<div class="viewcode-block" id="CurveFitting"><a class="viewcode-back" href="../../mod_curve_fitting.html#pyqt_fit.curve_fitting.CurveFitting">[docs]</a><span class="k">class</span> <span class="nc">CurveFitting</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Fit a curve using the :py:func:`scipy.optimize.leastsq` function</span>
+
+<span class="sd">    :type  xdata: ndarray</span>
+<span class="sd">    :param xdata: Explaining values</span>
+
+<span class="sd">    :type  ydata: ndarray</span>
+<span class="sd">    :param ydata: Target values</span>
+
+<span class="sd">    Once fitted, the following variables contain the result of</span>
+<span class="sd">    the fitting:</span>
+
+<span class="sd">    :ivar ndarray popt: The solution (or the result of the last iteration for</span>
+<span class="sd">        an unsuccessful call)</span>
+<span class="sd">    :ivar ndarray pcov: The estimated covariance of popt.  The diagonals</span>
+<span class="sd">        provide the variance of the parameter estimate.</span>
+<span class="sd">    :ivar ndarray res: Final residuals</span>
+
+<span class="sd">    :ivar dict infodict: a dictionary of outputs with the keys:</span>
+
+<span class="sd">            ``nfev``</span>
+<span class="sd">                the number of function calls</span>
+<span class="sd">            ``fvec``</span>
+<span class="sd">                the function evaluated at the output</span>
+<span class="sd">            ``fjac``</span>
+<span class="sd">                A permutation of the R matrix of a QR factorization of</span>
+<span class="sd">                the final approximate Jacobian matrix, stored column wise.</span>
+<span class="sd">                Together with ipvt, the covariance of the estimate can be</span>
+<span class="sd">                approximated.</span>
+<span class="sd">            ``ipvt``</span>
+<span class="sd">                an integer array of length N which defines a permutation</span>
+<span class="sd">                matrix, ``p``, such that ``fjac*p = q*r``, where ``r`` is upper</span>
+<span class="sd">                triangular with diagonal elements of nonincreasing</span>
+<span class="sd">                magnitude. Column ``j`` of ``p`` is column ``ipvt(j)`` of the</span>
+<span class="sd">                identity matrix.</span>
+<span class="sd">            ``qtf``</span>
+<span class="sd">                the vector ``(transpose(q) * fvec)``</span>
+<span class="sd">            ``CI``</span>
+<span class="sd">                list of tuple of parameters, each being the lower and</span>
+<span class="sd">                upper bounds for the confidence interval in the CI</span>
+<span class="sd">                argument at the same position.</span>
+<span class="sd">            ``est_jacobian``</span>
+<span class="sd">                True if the jacobian is estimated, false if the</span>
+<span class="sd">                user-provided functions have been used</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        In this implementation, residuals are supposed to be a generalisation</span>
+<span class="sd">        of the notion of difference. In the end, the mathematical expression</span>
+<span class="sd">        of this minimisation is:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \hat{\theta} = \argmin_{\theta\in \mathbb{R}^p}</span>
+<span class="sd">                \sum_i r(y_i, f(\theta, x_i))^2</span>
+
+<span class="sd">        Where :math:`\theta` is the vector of :math:`p` parameters to optimise,</span>
+<span class="sd">        :math:`r` is the residual function and :math:`f` is the function being</span>
+<span class="sd">        fitted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="o">**</span><span class="n">kwords</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fct</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dfun</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_residuals</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dres</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_col_deriv</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraints</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_args</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_kwords</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xdata</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ydata</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_p0</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fix_params</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ydata</span> <span class="o">=</span> <span class="n">ydata</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fitted</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">kwords</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">kwords</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_residuals</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_residuals</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_Dres</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">y1</span><span class="p">,</span> <span class="n">y0</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">need_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function to be called if the object need to be fitted again</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fitted</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if the object has been fitted or not</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fitted</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function to be fitted. The call of the function will be::</span>
+
+<span class="sd">            function(params, xs)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fct</span>
+
+    <span class="nd">@function.setter</span>
+    <span class="k">def</span> <span class="nf">function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fct</span> <span class="o">=</span> <span class="n">f</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Dfun</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Jacobian of the function with respect to its parameters.</span>
+
+<span class="sd">        :Note: col_deriv defines if the derivative with respect to a given parameter is in column or row</span>
+
+<span class="sd">        If not provided, a numerical approximation will be used instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Dfun</span>
+
+    <span class="nd">@Dfun.setter</span>
+    <span class="k">def</span> <span class="nf">Dfun</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dfun</span> <span class="o">=</span> <span class="n">df</span>
+
+    <span class="nd">@Dfun.deleter</span>
+    <span class="k">def</span> <span class="nf">Dfun</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dfun</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">col_deriv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Define if Dfun returns the derivatives by row or column.</span>
+
+<span class="sd">        If ``col_deriv`` is ``True``, each line correspond to a parameter and each column to a point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_col_deriv</span>
+
+    <span class="nd">@col_deriv.setter</span>
+    <span class="k">def</span> <span class="nf">col_deriv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_col_deriv</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">residuals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Residual function to use. The call will be::</span>
+
+<span class="sd">            residuals(y_measured, y_est)</span>
+
+<span class="sd">        where ``y_measured`` are the estimated values and ``y_est`` the measured ones.</span>
+
+<span class="sd">        :Default: the defauls is ``y_measured - y_est``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_residuals</span>
+
+    <span class="nd">@residuals.setter</span>
+    <span class="k">def</span> <span class="nf">residuals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_residuals</span> <span class="o">=</span> <span class="n">f</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Dres</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Derivative of the residual function with respec to the estimated values. The call will be:</span>
+
+<span class="sd">            Dres(y_measured, y_est)</span>
+
+<span class="sd">        :Default: as the default residual is ``y_measured - y_est``, the default derivative is ``-1``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Dres</span>
+
+    <span class="nd">@Dres.setter</span>
+    <span class="k">def</span> <span class="nf">Dres</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dres</span> <span class="o">=</span> <span class="n">df</span>
+
+    <span class="nd">@Dres.deleter</span>
+    <span class="k">def</span> <span class="nf">Dres</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Dres</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lsq_args</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extra arguments to give to the least-square algorithm.</span>
+
+<span class="sd">        See :py:func:`scipy.optimize.leastsq` for details</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_args</span>
+
+    <span class="nd">@lsq_args.setter</span>
+    <span class="k">def</span> <span class="nf">lsq_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+    <span class="nd">@lsq_args.deleter</span>
+    <span class="k">def</span> <span class="nf">lsq_args</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_args</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lsq_kwords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extra named arguments to give to the least-square algorithm.</span>
+
+<span class="sd">        See :py:func:`scipy.optimize.leastsq` for details</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_kwords</span>
+
+    <span class="nd">@lsq_kwords.setter</span>
+    <span class="k">def</span> <span class="nf">lsq_kwords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_kwords</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+    <span class="nd">@lsq_kwords.deleter</span>
+    <span class="k">def</span> <span class="nf">lsq_kwords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lsq_kwords</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">xdata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Explaining values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xdata</span>
+
+    <span class="nd">@xdata.setter</span>
+    <span class="k">def</span> <span class="nf">xdata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">,</span> <span class="s">&quot;Error, xdata must be at most a 2D array&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xdata</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ydata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Target values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ydata</span>
+
+    <span class="nd">@ydata.setter</span>
+    <span class="k">def</span> <span class="nf">ydata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;Error, ydata must be at most a 1D array&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ydata</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">need_fit</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">p0</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initial fitting parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p0</span>
+
+    <span class="nd">@p0.setter</span>
+    <span class="k">def</span> <span class="nf">p0</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;Error, p0 must be at most a 1D array&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_p0</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function returning additional constraints to the problem</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constraints</span>
+
+    <span class="nd">@constraints.setter</span>
+    <span class="k">def</span> <span class="nf">constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">callable</span><span class="p">(</span><span class="n">value</span><span class="p">),</span> <span class="s">&quot;Error, constraints must be a callable returning a 1d array&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraints</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@constraints.deleter</span>
+    <span class="k">def</span> <span class="nf">constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraints</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fix_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Index of parameters that shouldn&#39;t be touched by the algorithm</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_params</span>
+
+    <span class="nd">@fix_params.setter</span>
+    <span class="k">def</span> <span class="nf">fix_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fix_params</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@fix_params.deleter</span>
+    <span class="k">def</span> <span class="nf">fix_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fix_params</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit the curve</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Dres</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Dres</span>
+        <span class="n">Dfun</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Dfun</span>
+        <span class="n">fct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">residuals</span>
+        <span class="n">col_deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">col_deriv</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p0</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">ydata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ydata</span>
+        <span class="n">fix_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fix_params</span>
+
+        <span class="n">use_derivs</span> <span class="o">=</span> <span class="p">(</span><span class="n">Dres</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">Dfun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="k">if</span> <span class="n">fix_params</span><span class="p">:</span>
+            <span class="n">p_save</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">change_params</span> <span class="o">=</span> <span class="n">lrange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p0</span><span class="p">))</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fix_params</span><span class="p">:</span>
+                    <span class="n">change_params</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;List of parameters to fix is incorrect: &quot;</span>
+                                 <span class="s">&quot;contains either duplicates or values &quot;</span>
+                                 <span class="s">&quot;out of range.&quot;</span><span class="p">)</span>
+            <span class="n">p0</span> <span class="o">=</span> <span class="n">p_save</span><span class="p">[</span><span class="n">change_params</span><span class="p">]</span>
+
+            <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">p1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p_save</span><span class="p">)</span>
+                <span class="n">p1</span><span class="p">[</span><span class="n">change_params</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+                <span class="n">y0</span> <span class="o">=</span> <span class="n">fct</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">residuals</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">use_derivs</span><span class="p">:</span>
+                <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                    <span class="n">p1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p_save</span><span class="p">)</span>
+                    <span class="n">p1</span><span class="p">[</span><span class="n">change_params</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+                    <span class="n">y0</span> <span class="o">=</span> <span class="n">fct</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                    <span class="n">dfct</span> <span class="o">=</span> <span class="n">Dfun</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                    <span class="n">dr</span> <span class="o">=</span> <span class="n">Dres</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">col_deriv</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">dfct</span><span class="p">[</span><span class="n">change_params</span><span class="p">]</span><span class="o">*</span><span class="n">dr</span>
+                    <span class="k">return</span> <span class="n">dfct</span><span class="p">[:,</span><span class="n">change_params</span><span class="p">]</span><span class="o">*</span><span class="n">dr</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">y0</span> <span class="o">=</span> <span class="n">fct</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">residuals</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">use_derivs</span><span class="p">:</span>
+                <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                    <span class="n">dfct</span> <span class="o">=</span> <span class="n">Dfun</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                    <span class="n">y0</span> <span class="o">=</span> <span class="n">fct</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+                    <span class="n">dr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">Dres</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">y0</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">col_deriv</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">dfct</span><span class="o">*</span><span class="n">dr</span>
+                    <span class="k">return</span> <span class="n">dfct</span><span class="o">*</span><span class="n">dr</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">use_derivs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="n">df</span>
+
+        <span class="n">cd</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">col_deriv</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">optim</span> <span class="o">=</span> <span class="n">optimize</span><span class="o">.</span><span class="n">leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">full_output</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">Dfun</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+                                 <span class="n">col_deriv</span><span class="o">=</span><span class="n">cd</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">lsq_args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">lsq_kwords</span><span class="p">)</span>
+        <span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span><span class="p">,</span> <span class="n">infodict</span><span class="p">,</span> <span class="n">mesg</span><span class="p">,</span> <span class="n">ier</span> <span class="o">=</span> <span class="n">optim</span>
+        <span class="c">#infodict[&#39;est_jacobian&#39;] = not use_derivs</span>
+
+        <span class="k">if</span> <span class="n">fix_params</span><span class="p">:</span>
+            <span class="n">p_save</span><span class="p">[</span><span class="n">change_params</span><span class="p">]</span> <span class="o">=</span> <span class="n">popt</span>
+            <span class="n">popt</span> <span class="o">=</span> <span class="n">p_save</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ier</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s">&quot;Unable to determine number of fit parameters. &quot;</span>
+                               <span class="s">&quot;Error returned by scipy.optimize.leastsq:</span><span class="se">\n</span><span class="si">%s</span><span class="s">&quot;</span>
+                               <span class="o">%</span> <span class="p">(</span><span class="n">mesg</span><span class="p">,))</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="n">residuals</span><span class="p">(</span><span class="n">ydata</span><span class="p">,</span> <span class="n">fct</span><span class="p">(</span><span class="n">popt</span><span class="p">,</span> <span class="n">xdata</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">p0</span><span class="p">))</span> <span class="ow">and</span> <span class="n">pcov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">s_sq</span> <span class="o">=</span> <span class="p">(</span><span class="n">res</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ydata</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">p0</span><span class="p">))</span>
+            <span class="n">pcov</span> <span class="o">=</span> <span class="n">pcov</span> <span class="o">*</span> <span class="n">s_sq</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pcov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">popt</span> <span class="o">=</span> <span class="n">popt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pcov</span> <span class="o">=</span> <span class="n">pcov</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">res</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">infodict</span> <span class="o">=</span> <span class="n">infodict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fitted</span> <span class="o">=</span> <span class="bp">True</span>
+
+<div class="viewcode-block" id="CurveFitting.__call__"><a class="viewcode-back" href="../../mod_curve_fitting.html#pyqt_fit.curve_fitting.CurveFitting.__call__">[docs]</a>    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xdata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the value of the fitted function for each of the points in</span>
+<span class="sd">        ``xdata``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">popt</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span>
+</pre></div></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

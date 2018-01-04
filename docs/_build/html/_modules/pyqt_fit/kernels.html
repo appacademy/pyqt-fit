@@ -1,0 +1,700 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pyqt_fit.kernels &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pyqt_fit.kernels</h1><div class="highlight"><pre>
+<span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">:Author: Pierre Barbier de Reuille &lt;pierre.barbierdereuille@gmail.com&gt;</span>
+
+<span class="sd">Module providing a set of kernels for use with either the :py:mod:`pyqt_fit.kde` or the :py:mod:`kernel_smoothing` </span>
+<span class="sd">module.</span>
+
+<span class="sd">Kernels should be created following this template:</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">erf</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">fftpack</span><span class="p">,</span> <span class="n">integrate</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">make_ufunc</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_kernels_py</span>
+
+<span class="kn">from</span> <span class="nn">.cyth</span> <span class="kn">import</span> <span class="n">HAS_CYTHON</span>
+
+<span class="n">kernels_imp</span> <span class="o">=</span> <span class="bp">None</span>
+
+
+<span class="k">def</span> <span class="nf">usePython</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Force the use of the Python implementation of the kernels</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">kernels_imp</span>
+    <span class="kn">from</span> <span class="nn">.import</span> <span class="nn">_kernels_py</span>
+    <span class="n">kernels_imp</span> <span class="o">=</span> <span class="n">_kernels_py</span>
+
+
+<span class="k">def</span> <span class="nf">useCython</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Force the use of the Cython implementation of the kernels, if available</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">kernels_imp</span>
+    <span class="k">if</span> <span class="n">HAS_CYTHON</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_kernels</span>
+        <span class="n">kernels_imp</span> <span class="o">=</span> <span class="n">_kernels</span>
+
+
+<span class="k">if</span> <span class="n">HAS_CYTHON</span><span class="p">:</span>
+    <span class="n">useCython</span><span class="p">()</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">usePython</span><span class="p">()</span>
+    <span class="kn">import</span> <span class="nn">sys</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Warning, cannot import Cython kernel functions, &quot;</span>
+          <span class="s">&quot;pure python functions will be used instead&quot;</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+
+<span class="n">S2PI</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+
+
+<span class="n">S2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Kernel1D"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D">[docs]</a><span class="k">class</span> <span class="nc">Kernel1D</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    A 1D kernel :math:`K(z)` is a function with the following properties:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \begin{array}{rcl}</span>
+<span class="sd">        \int_\mathbb{R} K(z) &amp;=&amp; 1 \\</span>
+<span class="sd">        \int_\mathbb{R} zK(z)dz &amp;=&amp; 0 \\</span>
+<span class="sd">        \int_\mathbb{R} z^2K(z) dz &amp;&lt;&amp; \infty \quad (\approx 1)</span>
+<span class="sd">        \end{array}</span>
+
+<span class="sd">    Which translates into the function should have:</span>
+
+<span class="sd">    - a sum of 1 (i.e. a valid density of probability);</span>
+<span class="sd">    - an average of 0 (i.e. centered);</span>
+<span class="sd">    - a finite variance. It is even recommanded that the variance is close to 1 to give a uniform meaning to the </span>
+<span class="sd">      bandwidth.</span>
+
+<span class="sd">    .. py:attribute:: cut</span>
+
+<span class="sd">        :type: float</span>
+
+<span class="sd">        Cutting point after which there is a negligeable part of the probability. More formally, if :math:`c` is the </span>
+<span class="sd">        cutting point:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \int_{-c}^c p(x) dx \approx 1</span>
+
+<span class="sd">    .. py:attribute:: lower</span>
+
+<span class="sd">        :type: float</span>
+
+<span class="sd">        Lower bound of the support of the PDF. Formally, if :math:`l` is the lower bound:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \int_{-\infty}^l p(x)dx = 0</span>
+
+<span class="sd">    .. py:attribute:: upper</span>
+
+<span class="sd">        :type: float</span>
+
+<span class="sd">        Upper bound of the support of the PDF. Formally, if :math:`u` is the upper bound:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \int_u^\infty p(x)dx = 0</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cut</span> <span class="o">=</span> <span class="mf">3.</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+<div class="viewcode-block" id="Kernel1D.pdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.pdf">[docs]</a>    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Returns the density of the kernel on the points `z`. This is the funtion :math:`K(z)` itself.</span>
+
+<span class="sd">        :param ndarray z: Array of points to evaluate the function on. The method should accept any shape of array.</span>
+<span class="sd">        :param ndarray out: If provided, it will be of the same shape as `z` and the result should be stored in it.</span>
+<span class="sd">            Ideally, it should be used for as many intermediate computation as possible.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+</div>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Alias for :py:meth:`Kernel1D.pdf`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Kernel1D.cdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.cdf">[docs]</a>    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Returns the cumulative density function on the points `z`, i.e.:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            K_0(z) = \int_{-\infty}^z K(t) dt</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_pdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__comp_pdf</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper</span>
+            <span class="nd">@make_ufunc</span><span class="p">()</span>
+            <span class="k">def</span> <span class="nf">comp_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">lower</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">upper</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">upper</span>
+                <span class="k">return</span> <span class="n">integrate</span><span class="o">.</span><span class="n">quad</span><span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__comp_cdf</span> <span class="o">=</span> <span class="n">comp_pdf</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">comp_pdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Kernel1D.pm1"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.pm1">[docs]</a>    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Returns the first moment of the density function, i.e.:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            K_1(z) = \int_{-\infty}^z z K(t) dt</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_pm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__comp_pm1</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper</span>
+            <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="nd">@make_ufunc</span><span class="p">()</span>
+            <span class="k">def</span> <span class="nf">comp_pm1</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">lower</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">upper</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">upper</span>
+                <span class="k">return</span> <span class="n">integrate</span><span class="o">.</span><span class="n">quad</span><span class="p">(</span><span class="n">pm1</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__comp_pm1</span> <span class="o">=</span> <span class="n">comp_pm1</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">comp_pm1</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="Kernel1D.pm2"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.pm2">[docs]</a>    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Returns the second moment of the density function, i.e.:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            K_2(z) = \int_{-\infty}^z z^2 K(t) dt</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_pm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__comp_pm2</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper</span>
+            <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="nd">@make_ufunc</span><span class="p">()</span>
+            <span class="k">def</span> <span class="nf">comp_pm2</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">lower</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">upper</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">upper</span>
+                <span class="k">return</span> <span class="n">integrate</span><span class="o">.</span><span class="n">quad</span><span class="p">(</span><span class="n">pm2</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__comp_pm2</span> <span class="o">=</span> <span class="n">comp_pm2</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">comp_pm2</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Kernel1D.fft"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        FFT of the kernel on the points of ``z``. The points will always be provided as a grid with :math:`2^n` points, </span>
+<span class="sd">        representing the whole frequency range to be explored. For convenience, the second half of the points will be </span>
+<span class="sd">        provided as negative values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">t_star</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="n">t_star</span> <span class="o">*</span> <span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">(</span><span class="n">z</span> <span class="o">*</span> <span class="n">t_star</span><span class="p">)</span> <span class="o">*</span> <span class="n">dz</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+</div>
+<div class="viewcode-block" id="Kernel1D.dct"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Kernel1D.dct">[docs]</a>    <span class="k">def</span> <span class="nf">dct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        DCT of the kernel on the points of ``z``. The points will always be provided as a grid with :math:`2^n` points, </span>
+<span class="sd">        representing the whole frequency range to be explored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">a1</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="p">(</span><span class="n">z</span> <span class="o">/</span> <span class="n">a1</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">a1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">dct</span><span class="p">(</span><span class="bp">self</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">gp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">gp</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span><span class="o">.</span><span class="n">real</span>
+</div></div>
+<div class="viewcode-block" id="normal_kernel1d"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d">[docs]</a><span class="k">class</span> <span class="nc">normal_kernel1d</span><span class="p">(</span><span class="n">Kernel1D</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    1D normal density kernel with extra integrals for 1D bounded kernel estimation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="normal_kernel1d.pdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.pdf">[docs]</a>    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Return the probability density of the function. The formula used is:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \phi(z) = \frac{1}{\sqrt{2\pi}}e^{-\frac{x^2}{2}}</span>
+
+<span class="sd">        :param ndarray xs: Array of any shape</span>
+<span class="sd">        :returns: an array of shape identical to ``xs``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">norm1d_pdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Full-python implementation of :py:func:`normal_kernel1d.pdf`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">z</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">0.5</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">S2PI</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+<div class="viewcode-block" id="normal_kernel1d.fft"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the FFT of the normal distribution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">0.5</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="normal_kernel1d.dct"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.dct">[docs]</a>    <span class="k">def</span> <span class="nf">dct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the DCT of the normal distribution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asfarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">0.5</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+</div>
+<div class="viewcode-block" id="normal_kernel1d.cdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.cdf">[docs]</a>    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Cumulative density of probability. The formula used is:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{cdf}(z) \triangleq \int_{-\infty}^z \phi(z)</span>
+<span class="sd">                dz = \frac{1}{2}\text{erf}\left(\frac{z}{\sqrt{2}}\right) + \frac{1}{2}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">norm1d_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Full-python implementation of :py:func:`normal_kernel1d.cdf`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">z</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">S2</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">erf</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="mf">0.5</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="mf">0.5</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+<div class="viewcode-block" id="normal_kernel1d.pm1"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.pm1">[docs]</a>    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Partial moment of order 1:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm1}(z) \triangleq \int_{-\infty}^z z\phi(z) dz</span>
+<span class="sd">                = -\frac{1}{\sqrt{2\pi}}e^{-\frac{z^2}{2}}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">norm1d_pm1</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Full-python implementation of :py:func:`normal_kernel1d.pm1`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">z</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">0.5</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="o">-</span><span class="n">S2PI</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+<div class="viewcode-block" id="normal_kernel1d.pm2"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel1d.pm2">[docs]</a>    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Partial moment of order 2:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm2}(z) \triangleq \int_{-\infty}^z z^2\phi(z) dz</span>
+<span class="sd">                = \frac{1}{2}\text{erf}\left(\frac{z}{2}\right) - \frac{z}{\sqrt{2\pi}}</span>
+<span class="sd">                e^{-\frac{z^2}{2}} + \frac{1}{2}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">norm1d_pm2</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Full-python implementation of :py:func:`normal_kernel1d.pm2`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">S2</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">erf</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">zz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+            <span class="n">sz</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">zz</span><span class="p">]</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">zz</span><span class="p">]</span> <span class="o">-=</span> <span class="n">sz</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">sz</span> <span class="o">*</span> <span class="n">sz</span><span class="p">)</span> <span class="o">/</span> <span class="n">S2PI</span>
+        <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+            <span class="n">out</span> <span class="o">-=</span> <span class="n">z</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">z</span> <span class="o">*</span> <span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="n">S2PI</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="mf">0.5</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+</div>
+<div class="viewcode-block" id="normal_kernel"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel">[docs]</a><span class="k">class</span> <span class="nc">normal_kernel</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a function-object for the PDF of a Normal kernel of variance</span>
+<span class="sd">    identity and average 0 in dimension ``dim``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The __new__ method will automatically select :py:class:`normal_kernel1d` if dim is 1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">normal_kernel1d</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">object</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">factor</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="n">dim</span>
+
+<div class="viewcode-block" id="normal_kernel.pdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_kernel.pdf">[docs]</a>    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the probability density of the function.</span>
+
+<span class="sd">        :param ndarray xs: Array of shape (D,N) where D is the dimension of the kernel</span>
+<span class="sd">            and N the number of points.</span>
+<span class="sd">        :returns: an array of shape (N,) with the density on each point of ``xs``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">factor</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">xs</span> <span class="o">*</span> <span class="n">xs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+</div>
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+</div>
+<div class="viewcode-block" id="tricube"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.tricube">[docs]</a><span class="k">class</span> <span class="nc">tricube</span><span class="p">(</span><span class="n">Kernel1D</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Return the kernel corresponding to a tri-cube distribution, whose expression is.</span>
+<span class="sd">    The tri-cube function is given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f_r(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                        \left(1-|x|^3\right)^3 &amp; \text{, if } x \in [-1;1]\\</span>
+<span class="sd">                                0 &amp; \text{, otherwise}</span>
+<span class="sd">                        \end{array}\right.</span>
+
+<span class="sd">    As :math:`f_r` is not a probability and is not of variance 1, we use a normalized function:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x) = a b f_r(ax)</span>
+
+<span class="sd">        a = \sqrt{\frac{35}{243}}</span>
+
+<span class="sd">        b = \frac{70}{81}</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">tricube_pdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+    <span class="n">upper</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">_kernels_py</span><span class="o">.</span><span class="n">tricube_width</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="o">-</span><span class="n">upper</span>
+    <span class="n">cut</span> <span class="o">=</span> <span class="n">upper</span>
+
+<div class="viewcode-block" id="tricube.cdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.tricube.cdf">[docs]</a>    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        CDF of the distribution:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{cdf}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                \frac{1}{162} {\left(60 (ax)^{7} - 7 {\left(2 (ax)^{10} + 15 (ax)^{4}\right)}</span>
+<span class="sd">                \mathrm{sgn}\left(ax\right) + 140 ax + 81\right)} &amp; \text{, if}x\in[-1/a;1/a]\\</span>
+<span class="sd">                0 &amp; \text{, if} x &lt; -1/a \\</span>
+<span class="sd">                1 &amp; \text{, if} x &gt; 1/a</span>
+<span class="sd">                \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">tricube_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="tricube.pm1"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.tricube.pm1">[docs]</a>    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Partial moment of order 1:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm1}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                \frac{7}{3564a} {\left(165 (ax)^{8} - 8 {\left(5 (ax)^{11} + 33 (ax)^{5}\right)}</span>
+<span class="sd">                \mathrm{sgn}\left(ax\right) + 220 (ax)^{2} - 81\right)}</span>
+<span class="sd">                &amp; \text{, if} x\in [-1/a;1/a]\\</span>
+<span class="sd">                0 &amp; \text{, otherwise}</span>
+<span class="sd">                \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">tricube_pm1</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="tricube.pm2"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.tricube.pm2">[docs]</a>    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Partial moment of order 2:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm2}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">            \frac{35}{486a^2} {\left(4 (ax)^{9} + 4 (ax)^{3} - {\left((ax)^{12} + 6 (ax)^{6}\right)}</span>
+<span class="sd">            \mathrm{sgn}\left(ax\right) + 1\right)} &amp; \text{, if} x\in[-1/a;1/a] \\</span>
+<span class="sd">            0 &amp; \text{, if } x &lt; -1/a \\</span>
+<span class="sd">            1 &amp; \text{, if } x &gt; 1/a</span>
+<span class="sd">            \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">tricube_pm2</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="Epanechnikov"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov">[docs]</a><span class="k">class</span> <span class="nc">Epanechnikov</span><span class="p">(</span><span class="n">Kernel1D</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    1D Epanechnikov density kernel with extra integrals for 1D bounded kernel estimation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Epanechnikov.pdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov.pdf">[docs]</a>    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        The PDF of the kernel is usually given by:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            f_r(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                            \frac{3}{4} \left(1-x^2\right) &amp; \text{, if} x \in [-1:1]\\</span>
+<span class="sd">                                    0 &amp; \text{, otherwise}</span>
+<span class="sd">                            \end{array}\right.</span>
+
+<span class="sd">        As :math:`f_r` is not of variance 1 (and therefore would need adjustments for</span>
+<span class="sd">        the bandwidth selection), we use a normalized function:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            f(x) = \frac{1}{\sqrt{5}}f\left(\frac{x}{\sqrt{5}}\right)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_pdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span></div>
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+    <span class="n">upper</span> <span class="o">=</span> <span class="mf">1.</span><span class="o">/</span><span class="n">_kernels_py</span><span class="o">.</span><span class="n">epanechnikov_width</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="o">-</span><span class="n">upper</span>
+    <span class="n">cut</span> <span class="o">=</span> <span class="n">upper</span>
+
+<div class="viewcode-block" id="Epanechnikov.cdf"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov.cdf">[docs]</a>    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        CDF of the distribution. The CDF is defined on the interval :math:`[-\sqrt{5}:\sqrt{5}]` as:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{cdf}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                    \frac{1}{2} + \frac{3}{4\sqrt{5}} x - \frac{3}{20\sqrt{5}}x^3</span>
+<span class="sd">                    &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\</span>
+<span class="sd">                    0 &amp; \text{, if } x &lt; -\sqrt{5} \\</span>
+<span class="sd">                    1 &amp; \text{, if } x &gt; \sqrt{5}</span>
+<span class="sd">                    \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_cdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Epanechnikov.pm1"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov.pm1">[docs]</a>    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        First partial moment of the distribution:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm1}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                    -\frac{3\sqrt{5}}{16}\left(1-\frac{2}{5}x^2+\frac{1}{25}x^4\right)</span>
+<span class="sd">                    &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\</span>
+<span class="sd">                    0 &amp; \text{, otherwise}</span>
+<span class="sd">                    \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_pm1</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Epanechnikov.pm2"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov.pm2">[docs]</a>    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">        Second partial moment of the distribution:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \text{pm2}(x) = \left\{\begin{array}{ll}</span>
+<span class="sd">                    \frac{5}{20}\left(2 + \frac{1}{\sqrt{5}}x^3 - \frac{3}{5^{5/2}}x^5 \right)</span>
+<span class="sd">                    &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\</span>
+<span class="sd">                    0 &amp; \text{, if } x &lt; -\sqrt{5} \\</span>
+<span class="sd">                    1 &amp; \text{, if } x &gt; \sqrt{5}</span>
+<span class="sd">                    \end{array}\right.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_pm2</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="Epanechnikov_order4"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.Epanechnikov_order4">[docs]</a><span class="k">class</span> <span class="nc">Epanechnikov_order4</span><span class="p">(</span><span class="n">Kernel1D</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Order 4 Epanechnikov kernel. That is:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        K_{[4]}(x) = \frac{3}{2} K(x) + \frac{1}{2} x K&#39;(x) = -\frac{15}{8}x^2+\frac{9}{8}</span>
+
+<span class="sd">    where :math:`K` is the non-normalized Epanechnikov kernel.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">upper</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="o">-</span><span class="n">upper</span>
+    <span class="n">cut</span> <span class="o">=</span> <span class="n">upper</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_o4_pdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_o4_cdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_o4_pm1</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">epanechnikov_o4_pm2</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="normal_order4"><a class="viewcode-back" href="../../mod_kernels.html#pyqt_fit.kernels.normal_order4">[docs]</a><span class="k">class</span> <span class="nc">normal_order4</span><span class="p">(</span><span class="n">Kernel1D</span><span class="p">):</span>
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Order 4 Normal kernel. That is:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \phi_{[4]}(x) = \frac{3}{2} \phi(x) + \frac{1}{2} x \phi&#39;(x) = \frac{1}{2}(3-x^2)\phi(x)</span>
+
+<span class="sd">    where :math:`\phi` is the normal kernel.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">lower</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">cut</span> <span class="o">=</span> <span class="mf">3.</span>
+
+    <span class="k">def</span> <span class="nf">pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">normal_o4_pdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+    <span class="n">__call__</span> <span class="o">=</span> <span class="n">pdf</span>
+
+    <span class="k">def</span> <span class="nf">cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">normal_o4_cdf</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">pm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">normal_o4_pm1</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">pm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernels_imp</span><span class="o">.</span><span class="n">normal_o4_pm2</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</div>
+<span class="n">kernels1D</span> <span class="o">=</span> <span class="p">[</span><span class="n">normal_kernel1d</span><span class="p">,</span> <span class="n">tricube</span><span class="p">,</span> <span class="n">Epanechnikov</span><span class="p">,</span> <span class="n">Epanechnikov_order4</span><span class="p">,</span> <span class="n">normal_order4</span><span class="p">]</span>
+<span class="n">kernelsnD</span> <span class="o">=</span> <span class="p">[</span><span class="n">normal_kernel</span><span class="p">]</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

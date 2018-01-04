@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.curve_fitting &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="next" title="Module pyqt_fit.bootstrap" href="mod_bootstrap.html" />
+    <link rel="prev" title="Module pyqt_fit.plot_fit" href="mod_plot_fit.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_bootstrap.html" title="Module pyqt_fit.bootstrap"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mod_plot_fit.html" title="Module pyqt_fit.plot_fit"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.curve_fitting">
+<span id="module-pyqt-fit-curve-fitting"></span><h1>Module <tt class="docutils literal"><span class="pre">pyqt_fit.curve_fitting</span></tt><a class="headerlink" href="#module-pyqt_fit.curve_fitting" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>This module specifically implement the curve fitting, wrapping the default
+scipy.optimize.leastsq function. It allows for parameter value fixing,
+different kind of residual and added constraints function.</p>
+<p>The main class of the module is the <a class="reference internal" href="#pyqt_fit.curve_fitting.CurveFitting" title="pyqt_fit.curve_fitting.CurveFitting"><tt class="xref py py-class docutils literal"><span class="pre">CurveFitting</span></tt></a> class.</p>
+<dl class="class">
+<dt id="pyqt_fit.curve_fitting.CurveFitting">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.curve_fitting.</tt><tt class="descname">CurveFitting</tt><big>(</big><em>xdata</em>, <em>ydata</em>, <em>**kwords</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/curve_fitting.html#CurveFitting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.curve_fitting.CurveFitting" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit a curve using the <tt class="xref py py-func docutils literal"><span class="pre">scipy.optimize.leastsq()</span></tt> function</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>xdata</strong> (<em>ndarray</em>) &#8211; Explaining values</li>
+<li><strong>ydata</strong> (<em>ndarray</em>) &#8211; Target values</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Once fitted, the following variables contain the result of
+the fitting:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Variables:</th><td class="field-body"><ul class="first last simple">
+<li><strong>popt</strong> (<em>ndarray</em>) &#8211; The solution (or the result of the last iteration for
+an unsuccessful call)</li>
+<li><strong>pcov</strong> (<em>ndarray</em>) &#8211; The estimated covariance of popt.  The diagonals
+provide the variance of the parameter estimate.</li>
+<li><strong>res</strong> (<em>ndarray</em>) &#8211; Final residuals</li>
+<li><strong>infodict</strong> (<em>dict</em>) &#8211; <p>a dictionary of outputs with the keys:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">nfev</span></tt></dt>
+<dd>the number of function calls</dd>
+<dt><tt class="docutils literal"><span class="pre">fvec</span></tt></dt>
+<dd>the function evaluated at the output</dd>
+<dt><tt class="docutils literal"><span class="pre">fjac</span></tt></dt>
+<dd>A permutation of the R matrix of a QR factorization of
+the final approximate Jacobian matrix, stored column wise.
+Together with ipvt, the covariance of the estimate can be
+approximated.</dd>
+<dt><tt class="docutils literal"><span class="pre">ipvt</span></tt></dt>
+<dd>an integer array of length N which defines a permutation
+matrix, <tt class="docutils literal"><span class="pre">p</span></tt>, such that <tt class="docutils literal"><span class="pre">fjac*p</span> <span class="pre">=</span> <span class="pre">q*r</span></tt>, where <tt class="docutils literal"><span class="pre">r</span></tt> is upper
+triangular with diagonal elements of nonincreasing
+magnitude. Column <tt class="docutils literal"><span class="pre">j</span></tt> of <tt class="docutils literal"><span class="pre">p</span></tt> is column <tt class="docutils literal"><span class="pre">ipvt(j)</span></tt> of the
+identity matrix.</dd>
+<dt><tt class="docutils literal"><span class="pre">qtf</span></tt></dt>
+<dd>the vector <tt class="docutils literal"><span class="pre">(transpose(q)</span> <span class="pre">*</span> <span class="pre">fvec)</span></tt></dd>
+<dt><tt class="docutils literal"><span class="pre">CI</span></tt></dt>
+<dd>list of tuple of parameters, each being the lower and
+upper bounds for the confidence interval in the CI
+argument at the same position.</dd>
+<dt><tt class="docutils literal"><span class="pre">est_jacobian</span></tt></dt>
+<dd>True if the jacobian is estimated, false if the
+user-provided functions have been used</dd>
+</dl>
+</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>In this implementation, residuals are supposed to be a generalisation
+of the notion of difference. In the end, the mathematical expression
+of this minimisation is:</p>
+<div class="math">
+\[\hat{\theta} = \argmin_{\theta\in \mathbb{R}^p}
+    \sum_i r(y_i, f(\theta, x_i))^2\]</div>
+<p class="last">Where <span class="math">\(\theta\)</span> is the vector of <span class="math">\(p\)</span> parameters to optimise,
+<span class="math">\(r\)</span> is the residual function and <span class="math">\(f\)</span> is the function being
+fitted.</p>
+</div>
+<dl class="method">
+<dt id="pyqt_fit.curve_fitting.CurveFitting.__call__">
+<tt class="descname">__call__</tt><big>(</big><em>xdata</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/curve_fitting.html#CurveFitting.__call__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.curve_fitting.CurveFitting.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the value of the fitted function for each of the points in
+<tt class="docutils literal"><span class="pre">xdata</span></tt></p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_plot_fit.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.plot_fit</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mod_bootstrap.html"
+                        title="next chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.bootstrap</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_curve_fitting.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_bootstrap.html" title="Module pyqt_fit.bootstrap"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mod_plot_fit.html" title="Module pyqt_fit.plot_fit"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

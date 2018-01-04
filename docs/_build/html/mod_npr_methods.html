@@ -1,0 +1,423 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.npr_methods &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="next" title="Module pyqt_fit.kde" href="mod_kde.html" />
+    <link rel="prev" title="Module pyqt_fit.nonparam_regression" href="mod_nonparam_regression.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kde.html" title="Module pyqt_fit.kde"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mod_nonparam_regression.html" title="Module pyqt_fit.nonparam_regression"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.npr_methods">
+<span id="module-pyqt-fit-npr-methods"></span><h1>Module <a class="reference internal" href="#module-pyqt_fit.npr_methods" title="pyqt_fit.npr_methods"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.npr_methods</span></tt></a><a class="headerlink" href="#module-pyqt_fit.npr_methods" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>Module implementing non-parametric regressions using kernel methods.</p>
+<div class="section" id="non-parametric-regression-methods">
+<h2>Non-Parametric Regression Methods<a class="headerlink" href="#non-parametric-regression-methods" title="Permalink to this headline">¶</a></h2>
+<p>Methods must either inherit or follow the same definition as the
+<a class="reference internal" href="#pyqt_fit.npr_methods.RegressionKernelMethod" title="pyqt_fit.npr_methods.RegressionKernelMethod"><tt class="xref py py-class docutils literal"><span class="pre">pyqt_fit.npr_methods.RegressionKernelMethod</span></tt></a>.</p>
+<dl class="function">
+<dt id="pyqt_fit.npr_methods.compute_bandwidth">
+<tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">compute_bandwidth</tt><big>(</big><em>reg</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#compute_bandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.compute_bandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the bandwidth and covariance for the model, based of its xdata attribute</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.RegressionKernelMethod">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">RegressionKernelMethod</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#RegressionKernelMethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.RegressionKernelMethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for regression kernel methods</p>
+<p>The following methods are interface methods that should be overriden with ones specific to the implemented method.</p>
+<dl class="method">
+<dt id="pyqt_fit.npr_methods.RegressionKernelMethod.fit">
+<tt class="descname">fit</tt><big>(</big><em>reg</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#RegressionKernelMethod.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.RegressionKernelMethod.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit the method and returns the fitted object that will be used for actual evaluation.</p>
+<p>The object needs to call the <a class="reference internal" href="mod_nonparam_regression.html#pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth" title="pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth"><tt class="xref py py-meth docutils literal"><span class="pre">pyqt_fit.nonparam_regression.NonParamRegression.set_actual_bandwidth()</span></tt></a> 
+method with the computed bandwidth and covariance.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Default:</th><td class="field-body">Compute the bandwidth based on the real data and set it in the regression object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.npr_methods.RegressionKernelMethod.evaluate">
+<tt class="descname">evaluate</tt><big>(</big><em>points</em>, <em>out</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#RegressionKernelMethod.evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.RegressionKernelMethod.evaluate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the regression of the provided points.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>points</strong> (<em>ndarray</em>) &#8211; 2d-array of points to compute the regression on. Each column is a point.</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; 1d-array in which to store the result</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">ndarray</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The method must return the <tt class="docutils literal"><span class="pre">out</span></tt> array, updated with the regression values</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="provided-methods">
+<h2>Provided methods<a class="headerlink" href="#provided-methods" title="Permalink to this headline">¶</a></h2>
+<p>Only extra methods will be described:</p>
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.SpatialAverage">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">SpatialAverage</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#SpatialAverage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.SpatialAverage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a Nadaraya-Watson regression on the data (i.e. also called
+local-constant regression) using a gaussian kernel.</p>
+<p>The Nadaraya-Watson estimate is given by:</p>
+<div class="math">
+\[f_n(x) \triangleq \frac{\sum_i K\left(\frac{x-X_i}{h}\right) Y_i}
+{\sum_i K\left(\frac{x-X_i}{h}\right)}\]</div>
+<p>Where <span class="math">\(K(x)\)</span> is the kernel and must be such that <span class="math">\(E(K(x)) = 0\)</span>
+and <span class="math">\(h\)</span> is the bandwidth of the method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>xdata</strong> (<em>ndarray</em>) &#8211; Explaining variables (at most 2D array)</li>
+<li><strong>ydata</strong> (<em>ndarray</em>) &#8211; Explained variables (should be 1D array)</li>
+<li><strong>cov</strong> (<em>ndarray or callable</em>) &#8211; If an ndarray, it should be a 2D array giving the matrix of
+covariance of the gaussian kernel. Otherwise, it should be a function
+<tt class="docutils literal"><span class="pre">cov(xdata,</span> <span class="pre">ydata)</span></tt> returning the covariance matrix.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="pyqt_fit.npr_methods.SpatialAverage.q">
+<tt class="descname">q</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#SpatialAverage.q"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.SpatialAverage.q" title="Permalink to this definition">¶</a></dt>
+<dd><p>Degree of the fitted polynom</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.npr_methods.SpatialAverage.correction">
+<tt class="descname">correction</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#SpatialAverage.correction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.SpatialAverage.correction" title="Permalink to this definition">¶</a></dt>
+<dd><p>The correction coefficient allows to change the width of the kernel
+depending on the point considered. It can be either a constant (to
+correct globaly the kernel width), or a 1D array of same size as the
+input.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.npr_methods.SpatialAverage.set_density_correction">
+<tt class="descname">set_density_correction</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#SpatialAverage.set_density_correction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.SpatialAverage.set_density_correction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a correction coefficient depending on the density of the input</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.LocalLinearKernel1D">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">LocalLinearKernel1D</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalLinearKernel1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalLinearKernel1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a local-linear regression using a gaussian kernel.</p>
+<p>The local constant regression is the function that minimises, for each
+position:</p>
+<div class="math">
+\[f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}
+    \sum_i K\left(\frac{x-X_i}{h}\right)
+    \left(Y_i - a_0 - a_1(x-X_i)\right)^2\]</div>
+<p>Where <span class="math">\(K(x)\)</span> is the kernel and must be such that <span class="math">\(E(K(x)) = 0\)</span>
+and <span class="math">\(h\)</span> is the bandwidth of the method.</p>
+<dl class="attribute">
+<dt id="pyqt_fit.npr_methods.LocalLinearKernel1D.q">
+<tt class="descname">q</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalLinearKernel1D.q"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalLinearKernel1D.q" title="Permalink to this definition">¶</a></dt>
+<dd><p>Degree of the fitted polynom</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.LocalPolynomialKernel1D">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">LocalPolynomialKernel1D</tt><big>(</big><em>q=3</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalPolynomialKernel1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalPolynomialKernel1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a local-polynomial regression using a user-provided kernel
+(Gaussian by default).</p>
+<p>The local constant regression is the function that minimises, for each
+position:</p>
+<div class="math">
+\[f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}
+    \sum_i K\left(\frac{x-X_i}{h}\right)
+    \left(Y_i - a_0 - a_1(x-X_i) - \ldots -
+        a_q \frac{(x-X_i)^q}{q!}\right)^2\]</div>
+<p>Where <span class="math">\(K(x)\)</span> is the kernel such that <span class="math">\(E(K(x)) = 0\)</span>, <span class="math">\(q\)</span>
+is the order of the fitted polynomial  and <span class="math">\(h\)</span> is the bandwidth of
+the method. It is also recommended to have <span class="math">\(\int_\mathbb{R} x^2K(x)dx
+= 1\)</span>, (i.e. variance of the kernel is 1) or the effective bandwidth will be
+scaled by the square-root of this integral (i.e. the standard deviation of
+the kernel).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>xdata</strong> (<em>ndarray</em>) &#8211; Explaining variables (at most 2D array)</li>
+<li><strong>ydata</strong> (<em>ndarray</em>) &#8211; Explained variables (should be 1D array)</li>
+<li><strong>q</strong> (<em>int</em>) &#8211; Order of the polynomial to fit. <strong>Default:</strong> 3</li>
+<li><strong>cov</strong> (<em>float or callable</em>) &#8211; If an float, it should be a variance of the gaussian kernel.
+Otherwise, it should be a function <tt class="docutils literal"><span class="pre">cov(xdata,</span> <span class="pre">ydata)</span></tt> returning
+the variance.
+<strong>Default:</strong> <tt class="docutils literal"><span class="pre">scotts_covariance</span></tt></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="pyqt_fit.npr_methods.LocalPolynomialKernel1D.q">
+<tt class="descname">q</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalPolynomialKernel1D.q"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalPolynomialKernel1D.q" title="Permalink to this definition">¶</a></dt>
+<dd><p>Degree of the fitted polynom</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.LocalPolynomialKernel">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">LocalPolynomialKernel</tt><big>(</big><em>q=3</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalPolynomialKernel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalPolynomialKernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a local-polynomial regression in N-D using a user-provided kernel
+(Gaussian by default).</p>
+<p>The local constant regression is the function that minimises,
+for each position:</p>
+<div class="math">
+\[f_n(x) \triangleq \argmin_{a_0\in\mathbb{R}}
+    \sum_i K\left(\frac{x-X_i}{h}\right)
+    \left(Y_i - a_0 - \mathcal{P}_q(X_i-x)\right)^2\]</div>
+<p>Where <span class="math">\(K(x)\)</span> is the kernel such that <span class="math">\(E(K(x)) = 0\)</span>, <span class="math">\(q\)</span>
+is the order of the fitted polynomial, <span class="math">\(\mathcal{P}_q(x)\)</span> is a
+polynomial of order <span class="math">\(d\)</span> in <span class="math">\(x\)</span> and <span class="math">\(h\)</span> is the bandwidth
+of the method.</p>
+<p>The polynomial <span class="math">\(\mathcal{P}_q(x)\)</span> is of the form:</p>
+<div class="math">
+\[\mathcal{F}_d(k) = \left\{ \n \in \mathbb{N}^d \middle|
+    \sum_{i=1}^d n_i = k \right\}\]\[\mathcal{P}_q(x_1,\ldots,x_d) = \sum_{k=1}^q
+    \sum_{\n\in\mathcal{F}_d(k)} a_{k,\n}
+    \prod_{i=1}^d x_i^{n_i}\]</div>
+<p>For example we have:</p>
+<div class="math">
+\[\mathcal{P}_2(x,y) = a_{110} x + a_{101} y + a_{220} x^2 +
+    a_{211} xy + a_{202} y^2\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>xdata</strong> (<em>ndarray</em>) &#8211; Explaining variables (at most 2D array).
+The shape should be (N,D) with D the dimension of the problem
+and N the number of points. For 1D array, the shape can be (N,),
+in which case it will be converted to (N,1) array.</li>
+<li><strong>ydata</strong> (<em>ndarray</em>) &#8211; Explained variables (should be 1D array). The shape
+must be (N,).</li>
+<li><strong>q</strong> (<em>int</em>) &#8211; Order of the polynomial to fit. <strong>Default:</strong> 3</li>
+<li><strong>kernel</strong> (<em>callable</em>) &#8211; Kernel to use for the weights. Call is
+<tt class="docutils literal"><span class="pre">kernel(points)</span></tt> and should return an array of values the same size
+as <tt class="docutils literal"><span class="pre">points</span></tt>. If <tt class="docutils literal"><span class="pre">None</span></tt>, the kernel will be <tt class="docutils literal"><span class="pre">normal_kernel(D)</span></tt>.</li>
+<li><strong>cov</strong> (<em>float or callable</em>) &#8211; If an float, it should be a variance of the gaussian kernel.
+Otherwise, it should be a function <tt class="docutils literal"><span class="pre">cov(xdata,</span> <span class="pre">ydata)</span></tt> returning
+the variance.
+<strong>Default:</strong> <tt class="docutils literal"><span class="pre">scotts_covariance</span></tt></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="pyqt_fit.npr_methods.LocalPolynomialKernel.q">
+<tt class="descname">q</tt><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#LocalPolynomialKernel.q"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.LocalPolynomialKernel.q" title="Permalink to this definition">¶</a></dt>
+<dd><p>Degree of the fitted polynomials</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="data">
+<dt id="pyqt_fit.npr_methods.default_method">
+<tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">default_method</tt><a class="headerlink" href="#pyqt_fit.npr_methods.default_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defaut non-parametric regression method.
+:Default: LocalPolynomialKernel(q=1)</p>
+</dd></dl>
+
+</div>
+<div class="section" id="utility-functions-and-classes">
+<h2>Utility functions and classes<a class="headerlink" href="#utility-functions-and-classes" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.PolynomialDesignMatrix1D">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">PolynomialDesignMatrix1D</tt><big>(</big><em>degree</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#PolynomialDesignMatrix1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.PolynomialDesignMatrix1D" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.npr_methods.PolynomialDesignMatrix">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.npr_methods.</tt><tt class="descname">PolynomialDesignMatrix</tt><big>(</big><em>dim</em>, <em>deg</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#PolynomialDesignMatrix"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.PolynomialDesignMatrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class used to create a design matrix for polynomial regression</p>
+<dl class="method">
+<dt id="pyqt_fit.npr_methods.PolynomialDesignMatrix.__call__">
+<tt class="descname">__call__</tt><big>(</big><em>x</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/npr_methods.html#PolynomialDesignMatrix.__call__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.npr_methods.PolynomialDesignMatrix.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates the design matrix for polynomial fitting using the points x.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> (<em>ndarray</em>) &#8211; Points to create the design matrix.
+Shape must be (D,N) or (N,), where D is the dimension of
+the problem, 1 if not there.</li>
+<li><strong>deg</strong> (<em>int</em>) &#8211; Degree of the fitting polynomial</li>
+<li><strong>factors</strong> (<em>ndarray</em>) &#8211; Scaling factor for the columns of the design
+matrix. The shape should be (M,) or (M,1), where M is the number
+of columns of the out. This value can be obtained using
+the <tt class="xref py py-func docutils literal"><span class="pre">designMatrixSize()</span></tt> function.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The design matrix as a (M,N) matrix.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Module <tt class="docutils literal"><span class="pre">pyqt_fit.npr_methods</span></tt></a><ul>
+<li><a class="reference internal" href="#non-parametric-regression-methods">Non-Parametric Regression Methods</a></li>
+<li><a class="reference internal" href="#provided-methods">Provided methods</a></li>
+<li><a class="reference internal" href="#utility-functions-and-classes">Utility functions and classes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_nonparam_regression.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.nonparam_regression</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mod_kde.html"
+                        title="next chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kde</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_npr_methods.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_kde.html" title="Module pyqt_fit.kde"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mod_nonparam_regression.html" title="Module pyqt_fit.nonparam_regression"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

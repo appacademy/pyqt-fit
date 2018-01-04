@@ -1,0 +1,517 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Module pyqt_fit.kernels &mdash; PyQt-Fit 1.3.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.3.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="PyQt-Fit 1.3.1 documentation" href="index.html" />
+    <link rel="up" title="Modules of PyQt-Fit" href="modules.html" />
+    <link rel="next" title="Module pyqt_fit.utils" href="mod_utils.html" />
+    <link rel="prev" title="Module pyqt_fit.kde_methods" href="mod_kde_methods.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_utils.html" title="Module pyqt_fit.utils"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mod_kde_methods.html" title="Module pyqt_fit.kde_methods"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" accesskey="U">Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="math">
+\[\DeclareMathOperator{\erf}{erf}
+\DeclareMathOperator{\argmin}{argmin}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\n}{\boldsymbol{n}}\]</div>
+<div class="section" id="module-pyqt_fit.kernels">
+<span id="module-pyqt-fit-kernels"></span><h1>Module <a class="reference internal" href="#module-pyqt_fit.kernels" title="pyqt_fit.kernels"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.kernels</span></tt></a><a class="headerlink" href="#module-pyqt_fit.kernels" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Pierre Barbier de Reuille &lt;<a class="reference external" href="mailto:pierre&#46;barbierdereuille&#37;&#52;&#48;gmail&#46;com">pierre<span>&#46;</span>barbierdereuille<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</td>
+</tr>
+</tbody>
+</table>
+<p>Module providing a set of kernels for use with either the <a class="reference internal" href="mod_kde.html#module-pyqt_fit.kde" title="pyqt_fit.kde"><tt class="xref py py-mod docutils literal"><span class="pre">pyqt_fit.kde</span></tt></a> or the <tt class="xref py py-mod docutils literal"><span class="pre">kernel_smoothing</span></tt> 
+module.</p>
+<p>Kernels should be created following this template:</p>
+<div class="section" id="helper-class">
+<h2>Helper class<a class="headerlink" href="#helper-class" title="Permalink to this headline">¶</a></h2>
+<p>This class is provided with default implementations of everything in term of the PDF.</p>
+<dl class="class">
+<dt id="pyqt_fit.kernels.Kernel1D">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">Kernel1D</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>A 1D kernel <span class="math">\(K(z)\)</span> is a function with the following properties:</p>
+<div class="math">
+\[\begin{split}\begin{array}{rcl}
+\int_\mathbb{R} K(z) &amp;=&amp; 1 \\
+\int_\mathbb{R} zK(z)dz &amp;=&amp; 0 \\
+\int_\mathbb{R} z^2K(z) dz &amp;&lt;&amp; \infty \quad (\approx 1)
+\end{array}\end{split}\]</div>
+<p>Which translates into the function should have:</p>
+<ul class="simple">
+<li>a sum of 1 (i.e. a valid density of probability);</li>
+<li>an average of 0 (i.e. centered);</li>
+<li>a finite variance. It is even recommanded that the variance is close to 1 to give a uniform meaning to the 
+bandwidth.</li>
+</ul>
+<dl class="attribute">
+<dt id="pyqt_fit.kernels.Kernel1D.cut">
+<tt class="descname">cut</tt><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.cut" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+<p>Cutting point after which there is a negligeable part of the probability. More formally, if <span class="math">\(c\)</span> is the 
+cutting point:</p>
+<div class="math">
+\[\int_{-c}^c p(x) dx \approx 1\]</div>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.kernels.Kernel1D.lower">
+<tt class="descname">lower</tt><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.lower" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+<p>Lower bound of the support of the PDF. Formally, if <span class="math">\(l\)</span> is the lower bound:</p>
+<div class="math">
+\[\int_{-\infty}^l p(x)dx = 0\]</div>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pyqt_fit.kernels.Kernel1D.upper">
+<tt class="descname">upper</tt><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.upper" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+<p>Upper bound of the support of the PDF. Formally, if <span class="math">\(u\)</span> is the upper bound:</p>
+<div class="math">
+\[\int_u^\infty p(x)dx = 0\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.cdf">
+<tt class="descname">cdf</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the cumulative density function on the points <cite>z</cite>, i.e.:</p>
+<div class="math">
+\[K_0(z) = \int_{-\infty}^z K(t) dt\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.dct">
+<tt class="descname">dct</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.dct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.dct" title="Permalink to this definition">¶</a></dt>
+<dd><p>DCT of the kernel on the points of <tt class="docutils literal"><span class="pre">z</span></tt>. The points will always be provided as a grid with <span class="math">\(2^n\)</span> points, 
+representing the whole frequency range to be explored.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.fft">
+<tt class="descname">fft</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.fft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.fft" title="Permalink to this definition">¶</a></dt>
+<dd><p>FFT of the kernel on the points of <tt class="docutils literal"><span class="pre">z</span></tt>. The points will always be provided as a grid with <span class="math">\(2^n\)</span> points, 
+representing the whole frequency range to be explored. For convenience, the second half of the points will be 
+provided as negative values.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.pdf">
+<tt class="descname">pdf</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.pdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.pdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the density of the kernel on the points <cite>z</cite>. This is the funtion <span class="math">\(K(z)\)</span> itself.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>z</strong> (<em>ndarray</em>) &#8211; Array of points to evaluate the function on. The method should accept any shape of array.</li>
+<li><strong>out</strong> (<em>ndarray</em>) &#8211; If provided, it will be of the same shape as <cite>z</cite> and the result should be stored in it.
+Ideally, it should be used for as many intermediate computation as possible.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.pm1">
+<tt class="descname">pm1</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.pm1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.pm1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the first moment of the density function, i.e.:</p>
+<div class="math">
+\[K_1(z) = \int_{-\infty}^z z K(t) dt\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Kernel1D.pm2">
+<tt class="descname">pm2</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Kernel1D.pm2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Kernel1D.pm2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the second moment of the density function, i.e.:</p>
+<div class="math">
+\[K_2(z) = \int_{-\infty}^z z^2 K(t) dt\]</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="gaussian-kernels">
+<h2>Gaussian Kernels<a class="headerlink" href="#gaussian-kernels" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pyqt_fit.kernels.normal_kernel">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">normal_kernel</tt><big>(</big><em>dim</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a function-object for the PDF of a Normal kernel of variance
+identity and average 0 in dimension <tt class="docutils literal"><span class="pre">dim</span></tt>.</p>
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel.pdf">
+<tt class="descname">pdf</tt><big>(</big><em>xs</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel.pdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel.pdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the probability density of the function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>xs</strong> (<em>ndarray</em>) &#8211; Array of shape (D,N) where D is the dimension of the kernel
+and N the number of points.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">an array of shape (N,) with the density on each point of <tt class="docutils literal"><span class="pre">xs</span></tt></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kernels.normal_kernel1d">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">normal_kernel1d</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d" title="Permalink to this definition">¶</a></dt>
+<dd><p>1D normal density kernel with extra integrals for 1D bounded kernel estimation.</p>
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.cdf">
+<tt class="descname">cdf</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cumulative density of probability. The formula used is:</p>
+<div class="math">
+\[\text{cdf}(z) \triangleq \int_{-\infty}^z \phi(z)
+    dz = \frac{1}{2}\text{erf}\left(\frac{z}{\sqrt{2}}\right) + \frac{1}{2}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.dct">
+<tt class="descname">dct</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.dct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.dct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the DCT of the normal distribution</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.fft">
+<tt class="descname">fft</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.fft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.fft" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the FFT of the normal distribution</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.pdf">
+<tt class="descname">pdf</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.pdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.pdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the probability density of the function. The formula used is:</p>
+<div class="math">
+\[\phi(z) = \frac{1}{\sqrt{2\pi}}e^{-\frac{x^2}{2}}\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>xs</strong> (<em>ndarray</em>) &#8211; Array of any shape</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">an array of shape identical to <tt class="docutils literal"><span class="pre">xs</span></tt></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.pm1">
+<tt class="descname">pm1</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.pm1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.pm1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partial moment of order 1:</p>
+<div class="math">
+\[\text{pm1}(z) \triangleq \int_{-\infty}^z z\phi(z) dz
+    = -\frac{1}{\sqrt{2\pi}}e^{-\frac{z^2}{2}}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.normal_kernel1d.pm2">
+<tt class="descname">pm2</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_kernel1d.pm2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_kernel1d.pm2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partial moment of order 2:</p>
+<div class="math">
+\[\text{pm2}(z) \triangleq \int_{-\infty}^z z^2\phi(z) dz
+    = \frac{1}{2}\text{erf}\left(\frac{z}{2}\right) - \frac{z}{\sqrt{2\pi}}
+    e^{-\frac{z^2}{2}} + \frac{1}{2}\]</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="tricube-kernel">
+<h2>Tricube Kernel<a class="headerlink" href="#tricube-kernel" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pyqt_fit.kernels.tricube">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">tricube</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#tricube"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.tricube" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the kernel corresponding to a tri-cube distribution, whose expression is.
+The tri-cube function is given by:</p>
+<div class="math">
+\[\begin{split}f_r(x) = \left\{\begin{array}{ll}
+                \left(1-|x|^3\right)^3 &amp; \text{, if } x \in [-1;1]\\
+                        0 &amp; \text{, otherwise}
+                \end{array}\right.\end{split}\]</div>
+<p>As <span class="math">\(f_r\)</span> is not a probability and is not of variance 1, we use a normalized function:</p>
+<div class="math">
+\[f(x) = a b f_r(ax)\]\[a = \sqrt{\frac{35}{243}}\]\[b = \frac{70}{81}\]</div>
+<dl class="method">
+<dt id="pyqt_fit.kernels.tricube.cdf">
+<tt class="descname">cdf</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#tricube.cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.tricube.cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>CDF of the distribution:</p>
+<div class="math">
+\[\begin{split}\text{cdf}(x) = \left\{\begin{array}{ll}
+    \frac{1}{162} {\left(60 (ax)^{7} - 7 {\left(2 (ax)^{10} + 15 (ax)^{4}\right)}
+    \mathrm{sgn}\left(ax\right) + 140 ax + 81\right)} &amp; \text{, if}x\in[-1/a;1/a]\\
+    0 &amp; \text{, if} x &lt; -1/a \\
+    1 &amp; \text{, if} x &gt; 1/a
+    \end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.tricube.pm1">
+<tt class="descname">pm1</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#tricube.pm1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.tricube.pm1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partial moment of order 1:</p>
+<div class="math">
+\[\begin{split}\text{pm1}(x) = \left\{\begin{array}{ll}
+    \frac{7}{3564a} {\left(165 (ax)^{8} - 8 {\left(5 (ax)^{11} + 33 (ax)^{5}\right)}
+    \mathrm{sgn}\left(ax\right) + 220 (ax)^{2} - 81\right)}
+    &amp; \text{, if} x\in [-1/a;1/a]\\
+    0 &amp; \text{, otherwise}
+    \end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.tricube.pm2">
+<tt class="descname">pm2</tt><big>(</big><em>z</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#tricube.pm2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.tricube.pm2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partial moment of order 2:</p>
+<div class="math">
+\[\begin{split}\text{pm2}(x) = \left\{\begin{array}{ll}
+\frac{35}{486a^2} {\left(4 (ax)^{9} + 4 (ax)^{3} - {\left((ax)^{12} + 6 (ax)^{6}\right)}
+\mathrm{sgn}\left(ax\right) + 1\right)} &amp; \text{, if} x\in[-1/a;1/a] \\
+0 &amp; \text{, if } x &lt; -1/a \\
+1 &amp; \text{, if } x &gt; 1/a
+\end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="epanechnikov-kernel">
+<h2>Epanechnikov Kernel<a class="headerlink" href="#epanechnikov-kernel" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pyqt_fit.kernels.Epanechnikov">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">Epanechnikov</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov" title="Permalink to this definition">¶</a></dt>
+<dd><p>1D Epanechnikov density kernel with extra integrals for 1D bounded kernel estimation.</p>
+<dl class="method">
+<dt id="pyqt_fit.kernels.Epanechnikov.cdf">
+<tt class="descname">cdf</tt><big>(</big><em>xs</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov.cdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov.cdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>CDF of the distribution. The CDF is defined on the interval <span class="math">\([-\sqrt{5}:\sqrt{5}]\)</span> as:</p>
+<div class="math">
+\[\begin{split}\text{cdf}(x) = \left\{\begin{array}{ll}
+        \frac{1}{2} + \frac{3}{4\sqrt{5}} x - \frac{3}{20\sqrt{5}}x^3
+        &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\
+        0 &amp; \text{, if } x &lt; -\sqrt{5} \\
+        1 &amp; \text{, if } x &gt; \sqrt{5}
+        \end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Epanechnikov.pdf">
+<tt class="descname">pdf</tt><big>(</big><em>xs</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov.pdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov.pdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>The PDF of the kernel is usually given by:</p>
+<div class="math">
+\[\begin{split}f_r(x) = \left\{\begin{array}{ll}
+                \frac{3}{4} \left(1-x^2\right) &amp; \text{, if} x \in [-1:1]\\
+                        0 &amp; \text{, otherwise}
+                \end{array}\right.\end{split}\]</div>
+<p>As <span class="math">\(f_r\)</span> is not of variance 1 (and therefore would need adjustments for
+the bandwidth selection), we use a normalized function:</p>
+<div class="math">
+\[f(x) = \frac{1}{\sqrt{5}}f\left(\frac{x}{\sqrt{5}}\right)\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Epanechnikov.pm1">
+<tt class="descname">pm1</tt><big>(</big><em>xs</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov.pm1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov.pm1" title="Permalink to this definition">¶</a></dt>
+<dd><p>First partial moment of the distribution:</p>
+<div class="math">
+\[\begin{split}\text{pm1}(x) = \left\{\begin{array}{ll}
+        -\frac{3\sqrt{5}}{16}\left(1-\frac{2}{5}x^2+\frac{1}{25}x^4\right)
+        &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\
+        0 &amp; \text{, otherwise}
+        \end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="pyqt_fit.kernels.Epanechnikov.pm2">
+<tt class="descname">pm2</tt><big>(</big><em>xs</em>, <em>out=None</em><big>)</big><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov.pm2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov.pm2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Second partial moment of the distribution:</p>
+<div class="math">
+\[\begin{split}\text{pm2}(x) = \left\{\begin{array}{ll}
+        \frac{5}{20}\left(2 + \frac{1}{\sqrt{5}}x^3 - \frac{3}{5^{5/2}}x^5 \right)
+        &amp; \text{, if } x\in[-\sqrt{5}:\sqrt{5}] \\
+        0 &amp; \text{, if } x &lt; -\sqrt{5} \\
+        1 &amp; \text{, if } x &gt; \sqrt{5}
+        \end{array}\right.\end{split}\]</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="higher-order-kernels">
+<h2>Higher Order Kernels<a class="headerlink" href="#higher-order-kernels" title="Permalink to this headline">¶</a></h2>
+<p>High order kernels are kernel that give up being valid probabilities. We will say a kernel <span class="math">\(K_{[n]}\)</span> is of order <span class="math">\(n\)</span> if:</p>
+<div class="math">
+\[\begin{split}\begin{array}{rcl}
+\int_\R K_{[n]}(x) dx &amp; = &amp; 1 \\
+\forall 1 \leq k &lt; n  \int_\R x^k K_{[n]} dx &amp; = &amp; 0 \\
+\int_\R x^n K_{[n]} dx &amp; \neq &amp; 0
+\end{array}\end{split}\]</div>
+<p>PyQt-Fit implements two high order kernels.</p>
+<dl class="class">
+<dt id="pyqt_fit.kernels.Epanechnikov_order4">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">Epanechnikov_order4</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#Epanechnikov_order4"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.Epanechnikov_order4" title="Permalink to this definition">¶</a></dt>
+<dd><p>Order 4 Epanechnikov kernel. That is:</p>
+<div class="math">
+\[K_{[4]}(x) = \frac{3}{2} K(x) + \frac{1}{2} x K'(x) = -\frac{15}{8}x^2+\frac{9}{8}\]</div>
+<p>where <span class="math">\(K\)</span> is the non-normalized Epanechnikov kernel.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pyqt_fit.kernels.normal_order4">
+<em class="property">class </em><tt class="descclassname">pyqt_fit.kernels.</tt><tt class="descname">normal_order4</tt><a class="reference internal" href="_modules/pyqt_fit/kernels.html#normal_order4"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pyqt_fit.kernels.normal_order4" title="Permalink to this definition">¶</a></dt>
+<dd><p>Order 4 Normal kernel. That is:</p>
+<div class="math">
+\[\phi_{[4]}(x) = \frac{3}{2} \phi(x) + \frac{1}{2} x \phi'(x) = \frac{1}{2}(3-x^2)\phi(x)\]</div>
+<p>where <span class="math">\(\phi\)</span> is the normal kernel.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kernels</span></tt></a><ul>
+<li><a class="reference internal" href="#helper-class">Helper class</a></li>
+<li><a class="reference internal" href="#gaussian-kernels">Gaussian Kernels</a></li>
+<li><a class="reference internal" href="#tricube-kernel">Tricube Kernel</a></li>
+<li><a class="reference internal" href="#epanechnikov-kernel">Epanechnikov Kernel</a></li>
+<li><a class="reference internal" href="#higher-order-kernels">Higher Order Kernels</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mod_kde_methods.html"
+                        title="previous chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.kde_methods</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mod_utils.html"
+                        title="next chapter">Module <tt class="docutils literal"><span class="pre">pyqt_fit.utils</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/mod_kernels.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="mod_utils.html" title="Module pyqt_fit.utils"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mod_kde_methods.html" title="Module pyqt_fit.kde_methods"
+             >previous</a> |</li>
+        <li><a href="index.html">PyQt-Fit 1.3.1 documentation</a> &raquo;</li>
+          <li><a href="modules.html" >Modules of PyQt-Fit</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Barbier de Reuille, Pierre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
