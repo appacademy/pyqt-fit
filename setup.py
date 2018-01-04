@@ -32,12 +32,15 @@ setup(name='PyQt-Fit',
                                  ]
                     },
       scripts=['bin/pyqt_fit1d.py'],
-      install_requires=['distribute >=0.6',
+      install_requires=['distribute',
                         'numpy >=1.5.0',
                         'scipy >=0.10.0',
                         'matplotlib',
                         'path.py >=2.4.1'
                         ],
+      dependency_links=[
+        'git+https://github.com/appacademy/distribute.git@master#egg=distribute-0'
+      ],
       extras_require={'Cython': ["Cython >=0.17"]
                       },
       license='LICENSE.txt',
