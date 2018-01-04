@@ -2,7 +2,7 @@
 
 from setuptools import setup
 
-#import path
+#from path import Path
 
 #with (path(__file__).dirname() / 'pyqt_fit' / 'version.txt').open() as f:
     #__version__ = f.read().strip()
