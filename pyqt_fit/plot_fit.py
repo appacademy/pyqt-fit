@@ -4,9 +4,9 @@
 This modules implement functions to test and plot parametric regression.
 """
 
+from __future__ import division, print_function, absolute_import
 import matplotlib
 matplotlib.use('Agg')
-from __future__ import division, print_function, absolute_import
 from numpy import argsort, std, abs, sqrt, arange, pi, c_, asarray
 from .compat import izip
 from itertools import chain
