@@ -13,7 +13,6 @@ from numpy import nan, array, ma, arange
 from path import path
 from .curve_fitting import CurveFitting
 import sys
-from pylab import close as close_figure
 import traceback
 import re
 
@@ -402,15 +401,11 @@ class QtFitDlg(QtGui.QDialog):
 
     @pyqtSignature("QAbstractButton*")
     def on_buttonBox_clicked(self, button):
-        role = self.buttonBox.buttonRole(button)
-        if role == QtGui.QDialogButtonBox.ResetRole:
-            close_figure('all')
-        elif role == QtGui.QDialogButtonBox.ApplyRole:
-            self.plot()
+        return None
 
     @pyqtSignature("")
     def on_buttonBox_rejected(self):
-        close_figure('all')
+        return None
 
     def plot(self):
         if self.param_model is None:
