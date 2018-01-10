@@ -8,6 +8,7 @@ from PyQt4 import QtGui, QtCore, uic
 from PyQt4.QtCore import pyqtSignature, Qt
 from PyQt4.QtGui import QMessageBox
 import matplotlib
+matplotlib.use('Agg')
 from numpy import nan, array, ma, arange
 from path import path
 from .curve_fitting import CurveFitting
